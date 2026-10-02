@@ -96,6 +96,8 @@ export function watchFullscreen() {
   let embedded = false;
   try { embedded = window.self !== window.top; } catch (e) { embedded = true; }
   document.body.classList.toggle('embedded', embedded);
+  // launched from the home screen: no host bar to dodge
+  document.body.classList.toggle('standalone', !!(navigator.standalone || matchMedia('(display-mode: standalone), (display-mode: fullscreen)').matches));
   const sync = () => document.body.classList.toggle('fs', !!fsElement());
   document.addEventListener('fullscreenchange', sync); document.addEventListener('webkitfullscreenchange', sync);
   sync();
