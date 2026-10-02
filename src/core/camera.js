@@ -20,6 +20,13 @@ export class CameraRig {
     this.pos = new THREE.Vector3(); this.look = new THREE.Vector3();
     this.critT = 0; this.critDir = 0;
   }
+  /** Convert a landscape-tuned vertical FOV so portrait screens keep a usable horizontal view. */
+  fovFor(f) {
+    const a = this.cam.aspect;
+    if (a >= 1) return f;
+    const t = Math.tan(f * Math.PI / 360) * 1.1 / a;
+    return Math.min(88, Math.atan(t) * 360 / Math.PI);
+  }
   shake(amount) { this.trauma = clamp(this.trauma + amount, 0, 1); }
   kick(fov = 6) { this.fovKick = Math.max(this.fovKick, fov); }
   punch(amount = 1.5) { this.zoomPunch = Math.max(this.zoomPunch, amount); }
@@ -97,7 +104,7 @@ export class CameraRig {
     this.cam.position.copy(this.pos);
     this.cam.lookAt(this.look);
     this.fovKick = damp(this.fovKick, 0, 5, rdt);
-    this.cam.fov = this.fovBase + this.fovKick;
+    this.cam.fov = this.fovFor(this.fovBase) + this.fovKick;
     this.cam.updateProjectionMatrix();
     this.applyShake(rdt);
   }
@@ -129,7 +136,7 @@ export class CameraRig {
     this.cam.position.lerpVectors(pa, pb, u);
     _v2.lerpVectors(la, lb, u);
     this.cam.lookAt(_v2);
-    this.cam.fov = lerp(a.fov || this.fovBase, b.fov || this.fovBase, u) + this.fovKick;
+    this.cam.fov = this.fovFor(lerp(a.fov || this.fovBase, b.fov || this.fovBase, u)) + this.fovKick;
     this.fovKick = damp(this.fovKick, 0, 5, rdt);
     this.cam.updateProjectionMatrix();
     if (S.t >= keys[keys.length - 1].t && !S.ended) { S.ended = true; if (!S.holdLast) this.shot = null; S.onEnd?.(); }
