@@ -378,7 +378,9 @@ export class Boss extends Enemy {
       return 'blocked';
     }
     if (this.kind === 'varkas') info = { ...info, dmg: Math.min(info.dmg * (this.dmgTakenMult || 1), Math.max(0, this.hp - 1)) / (this.dmgTakenMult || 1) };
-    return super.receiveHit(info);
+    const r = super.receiveHit(info);
+    if (r === 'hit') this.G.story.bossTaunt?.(this);
+    return r;
   }
   onParried() {
     this.posture += this.maxPosture * 0.22; this.postureT = 2.5;

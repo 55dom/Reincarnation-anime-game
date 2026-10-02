@@ -14,9 +14,9 @@ function shade(hex, k) { const c = new THREE.Color(hex); c.multiplyScalar(k); re
 export function faceTexture(def, expr = 'neutral') {
   const key = JSON.stringify(def) + expr;
   if (cache.has(key)) return cache.get(key);
-  const S = 256;
-  const c = document.createElement('canvas'); c.width = S; c.height = S;
-  const g = c.getContext('2d');
+  const S = 256, RES = 512; // drawn in 256-space, rasterized at 512 for crisp close-ups
+  const c = document.createElement('canvas'); c.width = RES; c.height = RES;
+  const g = c.getContext('2d'); g.scale(RES / S, RES / S);
   g.lineCap = 'round'; g.lineJoin = 'round';
   const style = def.style || 'hero';
   const ink = '#1d1420';
@@ -61,7 +61,7 @@ export function faceTexture(def, expr = 'neutral') {
     }
     if (style === 'old') { g.strokeStyle = rgba(0x6a4a3a, 0.5); g.lineWidth = 2; for (const x of [70, 186]) { g.beginPath(); g.moveTo(x, ey + 22); g.lineTo(x + (x < 128 ? 8 : -8), ey + 30); g.stroke(); } }
   }
-  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4;
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8;
   cache.set(key, t);
   return t;
 }

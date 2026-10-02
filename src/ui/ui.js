@@ -29,6 +29,15 @@ export class UI {
     this.buildSkillBar();
     this.mapImage = null;
     this.fadeA = 0;
+    this.sub = document.createElement('div'); this.sub.id = 'subtitle'; document.body.appendChild(this.sub);
+  }
+  /** Non-blocking subtitle line (combat barks, radio chatter). */
+  subtitle(name, text, dur = 2.6, color = '#9fe8ff') {
+    if (this.G.cutscene || this.dialogueOpen) return;
+    this.sub.innerHTML = `<b style="color:${color}">${esc(name)}</b> ${esc(text)}`;
+    this.sub.classList.add('on'); clearTimeout(this._subT);
+    this._subT = setTimeout(() => this.sub.classList.remove('on'), dur * 1000);
+    if (!/^\[/.test(text)) Audio.say('talk', name === 'You' || name === this.G.player.name ? 200 : 260);
   }
 
   // ------------------------------------------------------------------ HUD
@@ -335,6 +344,7 @@ export class UI {
     } else if (tab === 'system') {
       body = `<div class="d">Game is auto-saved at waystones and after story events.</div><br>
         <button class="act" data-act="save">SAVE NOW</button> <button class="act" data-act="resume">RESUME</button> <button class="act" data-act="music">MUSIC: ${G.musicOn ? 'ON' : 'OFF'}</button> <button class="act" data-act="title">QUIT TO TITLE</button>
+        <h3>ANIMATION & GRAPHICS</h3><button class="act" data-act="anim">ANIMATION: ${G.settings.anim === 'smooth' ? 'SMOOTH' : 'ANIME (STEPPED)'}</button> <button class="act" data-act="quality">RENDER QUALITY: ${G.settings.quality.toUpperCase()}</button>
         <h3>ACCESSIBILITY</h3><button class="act" data-act="shake">SCREEN SHAKE: ${G.flags.noShake ? 'OFF' : 'ON'}</button> <button class="act" data-act="flash">IMPACT FLASHES: ${G.flags.noFlash ? 'OFF' : 'ON'}</button>`;
     }
     const tabHtml = tab === 'shop' ? '' : `<div class="tabs">${tabs.map(([k, n]) => `<button data-tab="${k}" class="${k === tab ? 'on' : ''}">${n}</button>`).join('')}</div>`;
@@ -352,6 +362,8 @@ export class UI {
     if (a === 'resume') this.closeMenu();
     if (a === 'music') { G.musicOn = !G.musicOn; Audio.setMusicVolume(G.musicOn ? 0.55 : 0); this.renderMenu(); }
     if (a === 'title') { G.save(); location.reload(); }
+    if (a === 'anim') { G.settings.anim = G.settings.anim === 'smooth' ? 'anime' : 'smooth'; G.applySettings(); this.renderMenu(); }
+    if (a === 'quality') { const order = ['high', 'medium', 'low']; G.settings.quality = order[(order.indexOf(G.settings.quality) + 1) % 3]; G.applySettings(); this.renderMenu(); this.toast('Shadows/AA changes apply fully after reload'); }
     if (a === 'shake') { G.flags.noShake = !G.flags.noShake; this.renderMenu(); }
     if (a === 'flash') { G.flags.noFlash = !G.flags.noFlash; this.renderMenu(); }
   }

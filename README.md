@@ -79,4 +79,19 @@ src/story     NPC cast & dialogue, quests, cutscenes, prologue
 src/ui        HUD, System windows, dialogue, menus
 ```
 
-Append `?lowgfx=1` to the URL for low-end machines (half resolution, no shadows).
+## Settings (Esc → SYSTEM)
+
+- **Animation: Smooth / Anime (stepped)** — Smooth (default) interpolates every frame with eased
+  in-betweens and keeps impact snaps as ultra-fast strikes; Anime samples poses on 12–24 fps for the
+  classic choppy look.
+- **Render quality: High / Medium / Low** — High renders at up to 2× pixel density with 4× MSAA through
+  the post-processing chain and 4096² shadow maps. `?lowgfx=1` forces Low.
+
+## Story beats
+
+Prologue (Varkas and the throne, 3:47 AM, a message from your sister Mio) → waking in Whisperwood →
+Lina and Elmbrook → the Guild's shattered Crest Crystal → the Ruins of the First Cycle and the
+Reincarnator reveal → **The Night Elmbrook Burned** (demon raid, Moloch the Hound, Lina's memory of
+a previous cycle) → class masters → the Frost Behemoth and Demon General → the Floating Isles, Echo's
+confession → the Herald and the Administrator → post-credits.
+Optional: Lina's night conversation after the raid, the Forgotten Knight's hollow, memory fragments.

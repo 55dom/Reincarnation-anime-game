@@ -68,8 +68,11 @@ const AnimeShader = {
 };
 
 export class Post {
-  constructor(renderer, scene, camera) {
-    this.composer = new EffectComposer(renderer);
+  constructor(renderer, scene, camera, { msaa = 4 } = {}) {
+    // multisampled HDR target so edges stay clean through the post chain
+    const size = renderer.getDrawingBufferSize(new THREE.Vector2());
+    const rt = new THREE.WebGLRenderTarget(size.x, size.y, { type: THREE.HalfFloatType, samples: msaa });
+    this.composer = new EffectComposer(renderer, rt);
     this.composer.addPass(new RenderPass(scene, camera));
     this.pass = new ShaderPass(AnimeShader);
     this.composer.addPass(this.pass);

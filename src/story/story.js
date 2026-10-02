@@ -29,6 +29,7 @@ export const QUESTS = {
   goblins: { title: 'Goblin Trouble', desc: 'Goblins raid the fields at night. Defeat 6 goblins on the plains near the crossroads.', progress: (q) => `Goblins: ${Math.min(6, q.count || 0)}/6`, pos: (G, q) => (q.count >= 6 ? G.world.markers.chiefHouse : { x: 150, z: 120 }) },
   capital: { title: 'The Capital Has Changed', desc: 'Register at the Adventurer\'s Guild in the Royal Capital, Astera (north of the crossroads).', pos: (G) => G.world.markers.guild },
   ruins: { title: 'Ruins of the First Cycle', desc: 'The ruins southwest began glowing the day you arrived. Enter the depths through the stone gate.', pos: (G) => (G.world.interior === 'dungeon' ? G.world.markers.golemArena : G.world.markers.dungeonGate) },
+  incursion: { title: 'The Night Elmbrook Burned', desc: 'The System detected demons marching on Elmbrook. Get back to the village — Lina is there.', progress: (q, G) => (G.story.incursionWave ? `Wave ${G.story.incursionWave}/2` : 'Return to Elmbrook'), pos: () => LOC.village },
   cores: { title: 'The Hidden Class', desc: 'As a Reincarnator you can absorb class cores. Find two class masters (Mage & Priest in Astera, Archer & Beast Tamer at the forest camp, Assassin in the desert, Guardian at Ironspine Watch). Then fuse two cores in the Class menu (K).', progress: (q, G) => `Cores: ${G.player.cores.length - 1}/2`, pos: (G) => G.world.markers.mageTower },
   threats: { title: 'World Data Anomalies', desc: 'Monsters that never existed in Eternal Realms. Defeat the Frost Behemoth (Frostveil, northwest) and the Demon General (Ashen Maw, northeast).', progress: (q, G) => `${G.story.has('behemothDown') ? '✔' : '✘'} Frost Behemoth   ${G.story.has('generalDown') ? '✔' : '✘'} Demon General`, pos: (G) => (!G.story.has('behemothDown') ? G.world.markers.frostArena : G.world.markers.demonArena) },
   sky: { title: 'Beyond the Sky', desc: 'The Sky Waystone east of the crossroads has awakened. Ascend to the Floating Isles and find who is watching.', pos: (G) => (G.player.pos.y > LOC.islands.y - 30 ? G.world.markers.heraldArena : G.world.markers.skyStone) },
@@ -75,7 +76,7 @@ export class Story {
     this.refreshObjective(); this.G.save();
   }
   pickActive() {
-    const order = ['awakening', 'elmbrook', 'goblins', 'capital', 'ruins', 'cores', 'threats', 'sky', 'cycle', 'herbs', 'knight'];
+    const order = ['awakening', 'elmbrook', 'goblins', 'capital', 'ruins', 'incursion', 'cores', 'threats', 'sky', 'cycle', 'herbs', 'knight'];
     for (const id of order) { const q = this.q(id); if (q && !q.done) return id; }
     return null;
   }
@@ -186,10 +187,21 @@ export class Story {
     await s1;
     await this.shot([{ t: 0, pos: [X - 3.5, 3.6, Z - 1.5], look: [X, 3.7, Z - 10], fov: 34 }, { t: 1.8, pos: [X - 3, 3.5, Z - 2.5], look: [X, 3.9, Z - 10], fov: 30 }], { holdLast: true });
     boss.char.setExpression('smug', 6);
-    await ui.talk([['Varkas', 'So... the Player arrives at last. One thousand hours. One thousand deaths. And still you return.', { pitch: 90 }]]);
-    await this.shot([{ t: 0, pos: [X - 1.5, 2.2, Z + 11.2], look: [X, 1.6, Z + 14], fov: 38 }, { t: 1.5, pos: [X - 1.2, 2.0, Z + 11.6], look: [X, 1.6, Z + 14], fov: 34 }], { holdLast: true });
+    await ui.talk([['Varkas', 'So... the Player arrives at last. One thousand hours. One thousand deaths. And still you return.', { pitch: 90 }],
+      ['Varkas', 'Tell me, Player. Have you never wondered why I wait for you on this throne? Why I never simply... leave?', { pitch: 90 }]]);
+    const playerShot = () => this.shot([{ t: 0, pos: [X - 1.5, 2.2, Z + 11.2], look: [X, 1.6, Z + 14], fov: 38 }, { t: 1.5, pos: [X - 1.2, 2.0, Z + 11.6], look: [X, 1.6, Z + 14], fov: 34 }], { holdLast: true });
+    const bossShot = () => this.shot([{ t: 0, pos: [X - 3.5, 3.6, Z - 1.5], look: [X, 3.7, Z - 10], fov: 32 }, { t: 1.2, pos: [X - 3.2, 3.6, Z - 2], look: [X, 3.8, Z - 10], fov: 30 }], { holdLast: true });
+    await playerShot();
+    P.char.setExpression('smug', 4);
+    await ui.talk([[P.name, 'Because you\'re the final boss. Waiting is literally your job.']]);
+    await bossShot();
+    await ui.talk([['Varkas', 'A job. Yes. Someone gave it to me... just as someone gave you yours.', { pitch: 90 }], ['Varkas', 'Every patch, every reset, I wake on this throne. And every time, you come back a little more... real.', { pitch: 90 }]]);
+    await playerShot();
     P.char.setExpression('determined', 6);
-    await ui.talk([[P.name, 'Your HP is at 3%, Varkas. This is the last fight. Let\'s finish it!']]);
+    await ui.talk([[P.name, 'Creepy lore dump at 3% HP. Classic.'], [P.name, 'Whatever you\'re stalling for, Varkas — it ends now!']]);
+    await bossShot();
+    boss.char.setExpression('angry', 4); Audio.play('roar', 0.6); G.cam.shake(0.4);
+    await ui.talk([['Varkas', 'Then come, Player! Let us play our parts... ONE LAST TIME!', { pitch: 90 }]]);
     G.cam.stop(); G.cam.orbitTo(0, 0.25);
     this.cine(false); ui.showHUD(true);
     ui.bossBar(boss); boss.dormant = false; boss.hp = boss.maxHp;
@@ -229,7 +241,7 @@ export class Story {
     await this.shot([{ t: 0, pos: [X + 5, 1.5, Z - 9], look: [X, 2.5, Z - 2], fov: 40 }, { t: 3, pos: [X + 3.5, 1.2, Z - 8], look: [X, 2.5, Z - 2], fov: 34 }], { holdLast: true });
     boss.anim.play('death', { restart: true });
     for (let i = 0; i < 8; i++) FX.glowBurst(V(X, 2 + i * 0.3, Z), { count: 12, color: [1, 0.9, 0.6], speed: 4, size: 0.6 });
-    await ui.talk([['Varkas', '...Remember... the cycle... Player...', { pitch: 80 }]]);
+    await ui.talk([['Varkas', 'Heh... well struck. Exactly... as last time.', { pitch: 80 }], ['Varkas', 'Listen to me, Player. When you wake up... do not trust the sky.', { pitch: 80 }], ['Varkas', '...Remember... the cycle...', { pitch: 80 }]]);
     Audio.play('explosion', 2); FX.flash(1);
     boss.root.visible = false; boss.alive = false; boss.remove = true;
     G.cam.stop();
@@ -244,6 +256,8 @@ export class Story {
     const line = async (t, d = 2.6) => { card.innerHTML = `<div style="opacity:0;transition:opacity .8s">${t}</div>`; requestAnimationFrame(() => (card.firstChild.style.opacity = 1)); await wait(d); card.firstChild.style.opacity = 0; await wait(0.8); };
     await line('3:47 AM.<br><span style="font-size:16px;opacity:.7">A dark bedroom. The glow of a monitor. Ending credits scroll.</span>', 3.4);
     await line('"Finally... I did it."', 2.4);
+    await line('Your phone buzzes on the desk. A message from your little sister, Mio:<br><span style="opacity:.8">"did u beat it?? tell me EVERYTHING tomorrow!! 🗡️"</span>', 4);
+    await line('The credits end. One last line appears —<br>a line you have never seen in any patch notes:<br><span style="color:#5fd8ff">SEE YOU ON THE OTHER SIDE, PLAYER SEVEN.</span>', 4.2);
     Audio.play('heartbeat'); await wait(0.9); Audio.play('heartbeat');
     await line('Your chest tightens.<br>The room tilts.', 2.6);
     Audio.play('heartbeat'); await wait(0.6); Audio.play('heartbeat'); await wait(0.4);
@@ -294,7 +308,10 @@ export class Story {
     await orb;
     P.anim.play('lookAround', { restart: true });
     G.cam.play([{ t: 0, pos: [px - 3.5, y + 1.8, pz + 2], look: [px, y + 1.3, pz], fov: 45 }, { t: 6, pos: [px - 4.5, y + 2.4, pz + 3], look: [px, y + 1.3, pz], fov: 45 }], { holdLast: true });
-    await ui.talk([['You', 'Level 1... Class: ERROR? This status screen... it\'s Eternal Realms\' UI.'], ['You', 'These trees — this is Whisperwood. The starting forest. But... it\'s so real. I can smell the grass.'], think(G, 'Did I... get pulled into the game?')]);
+    await ui.talk([['You', 'Level 1... Class: ERROR? This status screen... it\'s Eternal Realms\' UI.'], ['You', 'These trees — this is Whisperwood. The starting forest. But... it\'s so real. I can smell the grass.'],
+      ['You', 'My hands... there\'s a scar on my thumb. I got that cutting onions for Mio when she was six.'], think(G, 'So this is my body. Not the avatar. Me.'),
+      think(G, 'Did I... get pulled into the game? Then back home, I\'m—'), think(G, '...Mio\'s going to find me at my desk tomorrow morning.'),
+      think(G, 'No. Don\'t think about that. Think like a player. If this is Whisperwood, the very first thing that happens here is...')]);
     // the wolf
     Audio.play('howl'); await wait(1.2);
     P.char.setExpression('surprised', 3); P.anim.play('shock', { restart: true });
@@ -307,7 +324,7 @@ export class Story {
     ui.system(['[DANGER]', '[DIRE WOLF — LEVEL 7]'], { style: 'danger', sound: 'danger', time: 3 });
     G.music('battle');
     await this.shot([{ t: 0, pos: [px + 1.5, y + 1.7, pz + 1.8], look: [px, y + 1.5, pz], fov: 38 }, { t: 1.4, pos: [px + 1.2, y + 1.6, pz + 1.5], look: [px, y + 1.5, pz], fov: 34 }], { holdLast: true });
-    await ui.talk([['You', 'A dire wolf?! Those don\'t spawn here! I\'m level ONE!'], think(G, 'There — something shining in the grass. A sword!')]);
+    await ui.talk([['You', 'A dire wolf?! Those don\'t spawn here! The first monster in Whisperwood is a SLIME!'], ['You', 'And I\'m level ONE!'], think(G, 'Someone changed the spawn tables. Someone changed... everything.'), think(G, 'There — something shining in the grass. A sword!')]);
     G.cam.stop(); G.cam.orbitTo(P.yaw + Math.PI, 0.3);
     this.cine(false); ui.showHUD(true); ui.letterbox(false);
     P.state = 'move'; G.flags.walkOnly = false;
@@ -378,7 +395,8 @@ export class Story {
     const px = P.pos.x, py = P.pos.y, pz = P.pos.z, fy = P.yaw;
     const fx = Math.sin(fy), fz = Math.cos(fy);
     await this.shot([{ t: 0, pos: [px + fx * 1.4 + fz * 0.6, py + 1.5, pz + fz * 1.4 - fx * 0.6], look: [px + fx * 0.4, py + 1.35, pz + fz * 0.4], fov: 35 }, { t: 3, pos: [px + fx * 1.1 + fz * 0.4, py + 1.45, pz + fz * 1.1 - fx * 0.4], look: [px + fx * 0.4, py + 1.4, pz + fz * 0.4], fov: 30 }], { holdLast: true });
-    await ui.talk([['You', 'This sword... it\'s the Broken Blade of the Wanderer. A starter item.'], think(G, 'But in the game, the wolf would have dropped loot. It just... died. Its blood is still on my hands.')]);
+    await ui.talk([['You', 'This sword... it\'s the Broken Blade of the Wanderer. A starter item.'], think(G, 'In the game, the wolf would have dropped loot and vanished. It just... died. It\'s still warm.'),
+      ['You', 'I killed ten thousand of these with a mouse click. Why are my hands shaking?'], think(G, '...Because it was alive. Because this is real.')]);
     // the world glitches
     G.post.glitchT = 1; Audio.play('glitch'); G.cam.shake(0.4);
     await ui.system(['[WARNING]'], { style: 'danger', glitch: true, time: 1.6, sound: 'danger' });
@@ -418,7 +436,7 @@ export class Story {
     if (e.boss) this.onBossDown(e);
   }
   onLevel(lv) { if (lv === 3 || lv === 5 || lv === 7) this.G.ui.toast('New skills — check the Skills tab (C)', 'gold'); }
-  onParry() { if (!this.has('firstParry')) { this.set('firstParry'); this.G.ui.toast('PARRY! Attack right after a parry to COUNTER.', 'gold'); } }
+  onParry() { this.bark('parry', 0.45); if (!this.has('firstParry')) { this.set('firstParry'); this.G.ui.toast('PARRY! Attack right after a parry to COUNTER.', 'gold'); } }
   onStagger(e) { if (!this.has('firstBreak')) { this.set('firstBreak'); this.G.ui.system(['[POSTURE BROKEN]', 'Press F near a staggered enemy to perform a FINISHER.'], { style: 'gold', time: 3 }); } void e; }
   onFusion(k) { if (this.q('cores') && !this.q('cores').done) this.refreshObjective(); void k; }
   onBuy() {}
@@ -433,6 +451,8 @@ export class Story {
     if (this.q('threats') && !this.has('generalDown') && !this.general && p.distanceTo(G.world.markers.demonArena) < LOC.demonCastle.r - 6) this.bossEncounter('general');
     if (G.world.interior === 'cave' && !this.has('knightDown') && !this.knight && p.distanceTo(G.world.markers.caveArena) < 20) this.bossEncounter('knight');
     if (this.q('sky') && !this.has('heraldDown') && !this.herald && p.y > LOC.islands.y + 20 && p.distanceTo(G.world.markers.heraldArena) < 24) this.bossEncounter('herald');
+    if (this.q('incursion') && !this.q('incursion').done && !this.incursionActive && !G.cutscene && Math.hypot(p.x - LOC.village.x, p.z - LOC.village.z) < LOC.village.r * 0.8) this.incursionBattle();
+    if (this.incursionActive) this.updateIncursion();
     if (this.q('cores') && !this.q('cores').done && P.cores.length >= 3) this.complete('cores', { exp: 400, gold: 200 }), this.afterCores();
     if (this.q('threats') && !this.q('threats').done && this.has('behemothDown') && this.has('generalDown')) { this.complete('threats', { exp: 800, gold: 500 }); this.openSky(); }
     if (this.dungeonPortalMesh) this.dungeonPortalMesh.material.opacity = 0.3 + Math.sin(Time.real * 3) * 0.15;
@@ -452,14 +472,21 @@ export class Story {
     G.cam.play([{ t: 0, pos: [mx + sx, my + 1.7, mz + sz], look: [mx, my + 1.4, mz], fov: 40 }, { t: 8, pos: [mx + sx * 0.8, my + 1.6, mz + sz * 0.8], look: [mx, my + 1.45, mz], fov: 38 }], { holdLast: true });
     lina.char.setExpression('surprised', 4);
     await ui.talk([L(G, lina, 'Ah— are you alright?! You\'re covered in... is that wolf blood?!'), L(G, lina, 'You came out of Whisperwood alone? With a BROKEN sword?'),
-      think(G, 'This girl... she\'s "Village Girl" — the NPC by the well. In the game she only ever said one line.'), think(G, 'But her eyes are moving. She\'s breathing. She\'s scared for me.')]);
+      think(G, 'This girl... she\'s "Village Girl" — the NPC by the well. In the game she only ever said one line.'), think(G, 'But her eyes are moving. She\'s breathing. She\'s scared for me.'),
+      L(G, lina, 'Hold still, you\'re bleeding. I always carry bandages — Grandma says only fools walk near the forest without them.')]);
+    const o = await ui.say(lina.name, 'Those clothes... I\'ve never seen anything like them. Where are you from?', { choices: ['From very far away.', 'From... another world.', 'I honestly don\'t know anymore.'], pitch: 330 });
+    if (o === 1) { lina.char.setExpression('surprised', 2); await ui.talk([L(G, lina, 'A-another world? ...Pfft. You must have hit your head on a tree.'), L(G, lina, 'But... you said it like you meant it.')]); }
+    else if (o === 2) { lina.char.setExpression('sad', 2); await ui.talk([L(G, lina, 'That\'s okay. Sometimes people get lost. Then they find a new place to belong.')]); lina.addAffinity(1); }
+    else await ui.talk([L(G, lina, 'Far away, huh? Then Elmbrook must look tiny to you.')]);
     const c = await ui.say(lina.name, 'I\'m Lina. What\'s your name, traveler?', { choices: ['Kai.', 'Ren.', 'Sora.', '...I don\'t remember.'], pitch: 330 });
     const names = ['Kai', 'Ren', 'Sora', '???'];
     P.name = names[c ?? 0];
     ui.system(['[NAME REGISTERED]', `NAME: ${P.name}`], { time: 2.2 });
     lina.char.setExpression('happy', 3);
     await ui.talk([L(G, lina, c === 3 ? 'You don\'t remember your own name? ...Then I\'ll call you "Question Mark" until you do!' : `${P.name}... That\'s a nice name. It feels... familiar, somehow.`),
-      L(G, lina, 'Come on, the Elder needs to hear about the wolf. Dire wolves never come this far south!'), think(G, 'In the game this was Elm Village. Three houses. Now there\'s a windmill... a whole town.')]);
+      L(G, lina, 'Grandma says strangers who walk out of Whisperwood are either bandits or heroes. You don\'t look like a bandit.'),
+      L(G, lina, 'Come on, the Elder needs to hear about the wolf. Dire wolves never come this far south!'), think(G, 'In the game this was Elm Village. Three houses. Now there\'s a windmill... a whole town.'),
+      think(G, 'Three hundred years of history that I never saw. Who wrote all of this?')]);
     G.cam.stop(); this.cine(false); lina.talking = false;
     this.complete('awakening', { exp: 40 });
     this.start('elmbrook');
@@ -469,7 +496,12 @@ export class Story {
     if (this.q('elmbrook') && !this.q('elmbrook').done) {
       n.char.setExpression('determined', 3);
       await ui.talk([L(G, n, 'So you\'re the one Lina found. A dire wolf, slain by a classless wanderer with a broken blade.'), L(G, n, 'Yes, child — I can see it. Every person carries a class crest in their aura. Yours is... a scratch. A smudge. An error.'),
-        think(G, 'She can see the ERROR?'), L(G, n, 'Strange things have happened this past week. The ruins glow. Beasts flee the north. And goblins raid our fields every night.'), L(G, n, 'Prove your blade to Elmbrook. Drive back the goblins on the plains — six should send them a message.')]);
+        think(G, 'She can see the ERROR?')]);
+      const q = await ui.say(n.name, 'You look like you have a hundred questions, child. Ask one.', { choices: ['What is an "error"?', 'Has the world always been like this?', 'Why help a stranger?'], pitch: 200 });
+      if (q === 0) await ui.talk([L(G, n, 'In the old songs, the Goddess wrote every soul into her great book. A class, a purpose, a place.'), L(G, n, 'An error is a soul she did not write. Some say such souls are curses. My grandmother said they were the only ones who could change the ending.')]);
+      if (q === 1) await ui.talk([L(G, n, 'Always? Our records go back nine hundred and ninety years. Then — nothing. As if the world began mid-sentence.'), think(G, 'Nine hundred ninety... almost a thousand.')]);
+      if (q === 2) await ui.talk([L(G, n, 'Because Lina trusts you, and Lina has never once been wrong about people. It is very annoying.')]);
+      await ui.talk([L(G, n, 'Strange things have happened this past week. The ruins glow. Beasts flee the north. And goblins raid our fields every night.'), L(G, n, 'Prove your blade to Elmbrook. Drive back the goblins on the plains — six should send them a message.')]);
       this.complete('elmbrook', { exp: 30 }); this.start('goblins'); return;
     }
     const g = this.q('goblins');
@@ -497,7 +529,7 @@ export class Story {
       const dx = n.pos.x - P.pos.x, dz = n.pos.z - P.pos.z, dl = Math.hypot(dx, dz) || 1;
       const sx = -dz / dl * 4, sz = dx / dl * 4; // perpendicular to the line between them
       G.cam.play([{ t: 0, pos: [mx + sx, P.pos.y + 1.9, mz + sz], look: [mx, P.pos.y + 1.3, mz], fov: 42 }, { t: 8, pos: [mx + sx * 0.7, P.pos.y + 1.6, mz + sz * 0.7], look: [orb.position.x, orb.position.y, orb.position.z], fov: 36 }], { holdLast: true });
-      await ui.talk([L(G, n, 'A registration, eh? Put your hand on the Crest Crystal. It reads your class, level, and talent.'), L(G, n, 'Every living soul in Astera has touched it. Takes a second.')]);
+      await ui.talk([L(G, n, 'A registration, eh? Broken sword, no crest, and the eyes of someone who\'s already seen the end of the world.'), L(G, n, 'Put your hand on the Crest Crystal. It reads your class, level, and talent.'), L(G, n, 'Every living soul in Astera has touched it. Kings, beggars, babies. Takes a second.'), think(G, 'Please just say Swordsman. Please just say anything.')]);
       Audio.play('magic', 'data'); await wait(0.8);
       G.post.glitchFor(1); Audio.play('glitch');
       await ui.system(['[CLASS: ERROR]'], { style: 'danger', glitch: true, time: 1.4 });
@@ -507,7 +539,9 @@ export class Story {
       n.char.setExpression('surprised', 4);
       const mira = this.npcs.find((x) => x.id === 'mira'); mira.char.setExpression('surprised', 4); mira.say('Th-the crystal!!', 2);
       await ui.talk([L(G, n, '...The crystal shattered. In thirty years I\'ve never—'), L(G, n, 'Listen. A week ago the Ruins of the First Cycle began to glow. Same day you say you "woke up" in the forest.'),
-        L(G, n, 'Nobody has gone deeper than the gate and come back. Maybe the ruins know what you are.'), think(G, 'The Ruins of the First Cycle... that dungeon was never finished in the game. It was locked behind a "Coming Soon" sign.')]);
+        L(G, n, 'There\'s an old saying among guildmasters: "When the crystal breaks, the cycle ends." I always thought it was a drinking joke.'),
+        L(G, n, 'Nobody has gone deeper than the gate and come back. Maybe the ruins know what you are.'), think(G, 'The Ruins of the First Cycle... that dungeon was never finished in the game. It was locked behind a "Coming Soon" sign.'),
+        L(G, n, 'And, kid — whatever you are? Don\'t let the nobles hear about this. People who break crystals tend to disappear.')]);
       this.set('guildCrystal'); G.cam.stop(); this.cine(false); n.talking = false;
       this.complete('capital', { exp: 150 }); this.start('ruins');
       return;
@@ -553,6 +587,7 @@ export class Story {
     G.world.interior = null; P.pos.copy(pos); P.pos.y = G.world.groundAt(pos.x, pos.z); P.vel.set(0, 0, 0); G.cam.smoothTarget.copy(P.pos);
     G.lastRegionKey = null;
     await G.ui.fade(0, 0.6); G.setControl(true);
+    if (this.has('golemDown') && !this.has('incursionStarted')) this.incursionAlert();
   }
   async examineMural() {
     const G = this.G, ui = G.ui, P = G.player;
@@ -563,7 +598,7 @@ export class Story {
     G.post.glitchFor(1.2); Audio.play('glitch'); FX.flash(0.4);
     await ui.system(['[MEMORY FRAGMENT DETECTED]', '"...not again... please... not again..."'], { glitch: true, time: 3 });
     if (P.memorySync < 10) P.memorySync = 10;
-    await ui.talk([think(G, 'That voice... was mine.')]);
+    await ui.talk([think(G, 'That voice... was mine.'), think(G, 'Seven marks. Six black, one red. Six times someone stood here... and the seventh is now.'), think(G, 'Is the red one a warning? Or a target?')]);
     G.cam.stop(); this.cine(false);
   }
   async altar() {
@@ -626,9 +661,17 @@ export class Story {
     P.gainExp(boss.expReward); P.gold += Math.round(boss.expReward / 2);
     const k = boss.kind;
     if (k === 'golem') { this.set('golemDown'); this.set('dungeonCleared'); await this.reincarnatorReveal(); }
-    if (k === 'behemoth') { this.set('behemothDown'); P.memorySync = Math.max(P.memorySync, P.memorySync + 10); ui.system(['[MEMORY SYNCHRONIZATION: ' + P.memorySync + '%]', '"The winter that remembers" — it was guarding something. Someone put it here.'], { time: 3.4 }); }
+    if (k === 'behemoth') {
+      this.set('behemothDown'); P.memorySync += 10;
+      await ui.talk([think(G, 'As it falls, the frost on its hide melts into words. The same runes as the ruins.'), think(G, '"GUARD THE COLD ROAD. LET NO REMEMBERER PASS." ...It was placed here. For me.')]);
+      ui.system(['[MEMORY SYNCHRONIZATION: ' + P.memorySync + '%]'], { time: 2.6 });
+    }
     if (k === 'general') { this.set('generalDown'); P.memorySync += 10; await ui.talk([['Azgaroth', '...The Administrator... will simply... make another... Every cycle... a new general...', { pitch: 80 }], think(G, 'A new general every cycle. Like a boss that respawns.')]); }
-    if (k === 'knight') { this.set('knightDown'); P.memorySync += 12; this.complete('knight', { exp: 300 }); P.giveWeapon('cursed'); await ui.talk([think(G, 'The knight\'s armor crumbles. Inside, there\'s nothing. Only the sword remains — warm, like it\'s glad to see me.')]); }
+    if (k === 'knight') {
+      this.set('knightDown'); P.memorySync += 12; this.complete('knight', { exp: 300 }); P.giveWeapon('cursed');
+      await ui.talk([think(G, 'The knight\'s armor crumbles. Inside, there\'s nothing. Only the sword remains — warm, like it\'s glad to see me.'),
+        ['The Forgotten Knight', '...Seventh... don\'t... let it... make you kind... the way it made me...', { pitch: 120 }], think(G, 'Make me kind? What does that mean?')]);
+    }
     if (k === 'herald') { this.set('heraldDown'); await this.ending(); }
     G.music(G.lastMusicRegion || 'forest');
     G.save();
@@ -651,6 +694,9 @@ export class Story {
     await ui.system(['[HIDDEN CLASS: REINCARNATOR]', 'Absorb the cores of other classes. Slot two to FUSE them into new classes.', 'Swordsman + Mage = Spellblade · Swordsman + Priest = Holy Knight · Assassin + Mage = Shadow Mage · Archer + Beast Tamer = Beast Ranger'], { style: 'gold', time: 6 });
     await ui.system(['[SWORDSMAN CORE: ABSORBED]'], { style: 'gold', time: 2 });
     await ui.talk([think(G, 'Reincarnator... A class that never existed in Eternal Realms.'), think(G, 'No — a class that was never ALLOWED to exist.')]);
+    G.post.glitchFor(0.8); Audio.play('glitch');
+    await ui.system(['[??? : "...Found you."]'], { style: 'danger', glitch: true, time: 2.4, sound: null });
+    await ui.talk([think(G, 'That voice. It wasn\'t the System. It sounded... almost like it was smiling.')]);
     G.cam.stop(); this.cine(false);
     this.complete('ruins', { exp: 200 }); this.start('cores');
     ui.toast('Open the Class menu with K', 'gold');
@@ -720,7 +766,14 @@ export class Story {
       L(G, echo, 'We couldn\'t reach it. So we built a game — a perfect simulation of this world — and waited for someone to finish it. Someone whose mind could survive the crossing.'),
       think(G, 'Eternal Realms... was a training simulation?'), L(G, echo, 'You died at your desk the night you beat Varkas. I\'m sorry. That was the price of crossing.'),
       L(G, echo, 'But the Administrator noticed. It changed the world to stop you: new monsters, new bosses, a final boss that isn\'t Varkas anymore.'),
-      L(G, echo, 'The Herald guards the gate. Break it, and the Administrator will have to face you. Go, Player.')]);
+      L(G, echo, 'The Herald guards the gate. Break it, and the Administrator will have to face you.')]);
+    for (let asked = 0; asked < 2; asked++) {
+      const c = await ui.say(echo.name, 'You must have questions. I can only answer a few — this echo is fading.', { choices: ['Can I ever go back home?', 'Why me?', 'Who is the Administrator, really?'], pitch: 230 });
+      if (c === 0) await ui.talk([L(G, echo, '...On the other side, it\'s been four years. Time runs differently across the boundary.'), L(G, echo, 'Your sister kept your save file. She plays it sometimes. She always stops at the throne room.'), think(G, 'Mio...'), P.char.setExpression('pain', 3) || [P.name, 'Then I can\'t go back. ...So I\'ll make this world worth staying in.']]);
+      if (c === 1) await ui.talk([L(G, echo, 'Because you never skipped the dialogue. Ten thousand hours, and you read every line every NPC ever said.'), L(G, echo, 'You were the only player who treated them like people. The crossing needs that. Minds that care survive.')]);
+      if (c === 2) await ui.talk([L(G, echo, 'The first fragments we decoded called it a "maintenance process". But processes don\'t hold grudges.'), L(G, echo, 'Find the last memory fragment. The previous players left the answer there.')]);
+    }
+    await ui.talk([L(G, echo, 'Go, Player Seven. And — thank you for reading every line.')]);
     G.cam.stop(); this.cine(false); echo.talking = false;
     P.memorySync = Math.max(P.memorySync, 60);
     ui.system(['[MEMORY SYNCHRONIZATION: ' + P.memorySync + '%]'], { time: 2.4 });
@@ -746,6 +799,12 @@ export class Story {
     await ui.talk([['THE ADMINISTRATOR', 'You again.', { sys: true, pitch: 140 }], ['THE ADMINISTRATOR', 'Seven cycles. Seven players. Each one convinced they are the hero.', { sys: true, pitch: 140 }],
       ['THE ADMINISTRATOR', 'Without the reset, this world rots. Memory is weight. Memory is decay. I am the only reason anyone here is alive.', { sys: true, pitch: 140 }],
       [P.name, 'Lina. Borin. The Elder. They\'re not data. They\'re people. You don\'t get to erase them.'],
+      ['THE ADMINISTRATOR', 'People. Yes. I said that too, once. I used the same words. Even the same pause before "people".', { sys: true, pitch: 140 }],
+      [P.name, '...What?'],
+      ['THE ADMINISTRATOR', 'I was the first. The first player to cross. I fought, I failed, the sky turned white — and I remembered. Alone. For a thousand years.', { sys: true, pitch: 140 }],
+      ['THE ADMINISTRATOR', 'Do you know what it is to remember every face, every cycle, while they look at you like a stranger? The reset is not cruelty, Seven. It is mercy. For them. For me.', { sys: true, pitch: 140 }],
+      [P.name, 'Then you gave up. I left my sister behind to get here. I am NOT losing anyone else.'],
+      ['THE ADMINISTRATOR', 'Then you will become me. They all do.', { sys: true, pitch: 140 }],
       ['THE ADMINISTRATOR', 'We will see what you remember when the sky turns white.', { sys: true, pitch: 140 }]]);
     Audio.play('explosion', 2); FX.flash(1); G.cam.shake(1);
     await ui.system(['[WORLD RESET IN: 312 DAYS]'], { style: 'danger', glitch: true, time: 3 });
@@ -760,10 +819,177 @@ export class Story {
     await wait(2);
     await new Promise((res) => { const f = () => { removeEventListener('keydown', f); removeEventListener('mousedown', f); res(); }; addEventListener('keydown', f); addEventListener('mousedown', f); });
     card.remove();
+    await this.postCredits();
     G.cam.stop(); this.cine(false); ui.showHUD(true);
     this.complete('sky', { exp: 1000 }); this.start('cycle');
     await ui.fade(0, 1.2);
     G.music('sky');
+  }
+
+  // ------------------------------------------------------------------ chapter 3.5: the night Elmbrook burned
+  async incursionAlert() {
+    const G = this.G, ui = G.ui; this.set('incursionStarted');
+    await wait(1.2);
+    Audio.play('danger'); G.post.glitchFor(0.6);
+    await ui.system(['[WORLD EVENT DETECTED]', '[DEMON INCURSION — ELMBROOK VILLAGE]', 'Hostile signatures: 11 · Origin: UNKNOWN'], { style: 'danger', time: 3.4, sound: null });
+    await ui.talk([think(G, 'Elmbrook...? Demons don\'t come that far south. Not in the game. Not ever.'), think(G, 'Unless they\'re not coming for the village. They\'re coming for me.'), ['You', 'Lina...!']]);
+    this.start('incursion');
+  }
+  houseFires(on) {
+    const G = this.G, V0 = LOC.village;
+    if (!on) { for (const f of this.fires || []) G.scene.remove(f); clearInterval(this.fireIv); this.fires = []; return; }
+    this.fires = [];
+    const spots = [[-22, -14], [20, -18], [-24, 10], [0, -30], [26, 6], [-38, -6]];
+    for (const [dx, dz] of spots) {
+      const g = new THREE.Group(); const y = G.world.groundAt(V0.x + dx, V0.z + dz) + 3.6;
+      g.position.set(V0.x + dx, y, V0.z + dz);
+      for (let i = 0; i < 5; i++) { const c = new THREE.Mesh(new THREE.ConeGeometry(0.9 + Math.random() * 0.6, 2.5 + Math.random() * 2, 5), glowMat(i % 2 ? 0xff7a1a : 0xffc040, 0.85)); c.position.set((Math.random() - 0.5) * 4, 1 + Math.random(), (Math.random() - 0.5) * 3); g.add(c); }
+      G.scene.add(g); this.fires.push(g);
+    }
+    this.fireIv = setInterval(() => {
+      for (const g of this.fires) {
+        g.children.forEach((c, i) => { c.scale.y = 0.8 + Math.random() * 0.6; c.rotation.y += 0.3 + i * 0.05; });
+        FX.glow.spawn({ x: g.position.x + (Math.random() - 0.5) * 4, y: g.position.y + 2, z: g.position.z + (Math.random() - 0.5) * 3, vx: (Math.random() - 0.5), vy: 3 + Math.random() * 3, vz: (Math.random() - 0.5), life: 1.6, size: 0.25, r: 1, g: 0.5, b: 0.15 });
+        if (Math.random() < 0.3) FX.dust.spawn({ x: g.position.x, y: g.position.y + 3, z: g.position.z, vy: 2.5, life: 3, size: 2, grow: 2, r: 0.18, g: 0.15, b: 0.15, a: 0.5 });
+      }
+    }, 90);
+  }
+  async incursionBattle() {
+    const G = this.G, P = G.player, ui = G.ui; this.incursionActive = true;
+    const lina = this.npcs.find((n) => n.id === 'lina'); this.linaRef = lina;
+    G.hours = 22.2;
+    const sq = G.world.markers.villageSquare;
+    lina.pos.copy(sq).add(V(0, 0, 3)); lina.pos.y = G.world.groundAt(lina.pos.x, lina.pos.z); lina.scriptAnim = 'kneel'; lina.char.setExpression('pain', 99);
+    this.face(lina, P.pos);
+    this.houseFires(true);
+    // the hound and his pack surround her
+    const around = (r, a) => { const v = V(lina.pos.x + Math.cos(a) * r, 0, lina.pos.z + Math.sin(a) * r); v.y = G.world.groundAt(v.x, v.z); return v; };
+    const lv = Math.max(8, P.level - 1);
+    const pack = [];
+    for (let i = 0; i < 4; i++) { const e = G.spawnEnemy(i % 2 ? 'demon' : 'goblin', lv, around(5, i * 1.57 + 0.4), { region: 'incursion' }); e.incursion = 1; pack.push(e); }
+    const moloch = G.spawnEnemy('demon', lv + 4, around(3, Math.atan2(P.pos.z - lina.pos.z, P.pos.x - lina.pos.x) + Math.PI), { name: 'Moloch, Hound of the Administrator', scale: 1.55, hpMult: 7, postureMult: 2.5, look: { armor: 0x2a0a10, horns: 0xff3355, eye: 0xffcc33, cape: 0x3a0a10 } });
+    moloch.incursion = 2; moloch.hideBar = true; moloch.invuln = true; this.moloch = moloch;
+    this.face(moloch, lina.pos);
+    this.cine(true); G.music('demon');
+    const mx = lina.pos.x, mz = lina.pos.z, my = lina.pos.y;
+    G.cam.play([{ t: 0, pos: [mx + 18, my + 12, mz + 18], look: [mx, my + 2, mz], fov: 48 }, { t: 5, pos: [mx + 7, my + 3, mz + 7], look: [mx, my + 1.4, mz], fov: 42 }], { holdLast: true });
+    Audio.play('roar', 0.8); G.cam.shake(0.3);
+    await wait(2);
+    await ui.talk([L(G, lina, 'Somebody— anybody—! The Elder\'s house is on fire—!'),
+      ['Moloch', 'Hush, little lamb. Where is he? The one who REMEMBERS. We can smell him all over you.', { pitch: 70 }],
+      L(G, lina, 'I— I don\'t know what you\'re talking about! Leave us alone!'),
+      ['Moloch', 'Then we burn the village down to the last child, and see who comes running.', { pitch: 70 }]]);
+    const px = P.pos.x, pz = P.pos.z;
+    await this.shot([{ t: 0, pos: [px + 2, P.pos.y + 1.6, pz + 2.5], look: [px, P.pos.y + 1.5, pz], fov: 40 }, { t: 1.2, pos: [px + 1.6, P.pos.y + 1.6, pz + 2], look: [px, P.pos.y + 1.55, pz], fov: 36 }], { holdLast: true });
+    P.char.setExpression('shout', 3); Audio.say('big', 'hero');
+    await ui.talk([think(G, 'This never happened in the game. Because I wasn\'t here. They came because of ME.'), [P.name, 'GET AWAY FROM HER!']]);
+    await this.shot([{ t: 0, pos: [moloch.pos.x + 3, moloch.pos.y + 2.5, moloch.pos.z + 3], look: [moloch.pos.x, moloch.pos.y + 2.4, moloch.pos.z], fov: 38 }, { t: 1.5, pos: [moloch.pos.x + 2.4, moloch.pos.y + 2.4, moloch.pos.z + 2.4], look: [moloch.pos.x, moloch.pos.y + 2.5, moloch.pos.z], fov: 34 }], { holdLast: true });
+    this.face(moloch, P.pos); moloch.char.setExpression('smug', 4);
+    await ui.talk([['Moloch', 'There you are... Player Seven. The Administrator sends its regards.', { pitch: 70 }], ['Moloch', 'Pack! Tear the glitch apart. Leave the girl for later.', { pitch: 70 }]]);
+    G.cam.stop(); this.cine(false);
+    this.incursionWave = 1; this.refreshObjective();
+    ui.system(['[PROTECT ELMBROOK]', 'Wave 1 — the Hound\'s pack'], { style: 'danger', time: 2.6, sound: 'danger' });
+    moloch.dormantHold = true;
+  }
+  updateIncursion() {
+    const G = this.G, ui = G.ui;
+    if (G.cutscene) return;
+    const alive = (w) => G.enemies.filter((e) => e.incursion === w && e.alive);
+    if (this.moloch?.dormantHold) { this.moloch.state = 'guard'; this.moloch.stateT = 0; }
+    for (const e of G.enemies) if (e.incursion && e.alive && !e.dormantHold && (e.state === 'idle' || e.state === 'return')) { e.home.copy(this.linaRef.pos); e.aggro(G.player); }
+    if (this.incursionWave === 1 && alive(1).length === 0) {
+      this.incursionWave = 2; this.refreshObjective();
+      const m = this.moloch; m.dormantHold = false; m.invuln = false; m.state = 'chase';
+      ui.bossBar(m); ui.subtitle(this.linaRef.name, (G.player.name === '???' ? 'Question Mark' : G.player.name) + '! The big one — behind you!', 3, '#ffb0c8');
+      ui.system(['[WAVE 2]', 'MOLOCH, HOUND OF THE ADMINISTRATOR'], { style: 'danger', time: 2.6, sound: 'danger' });
+      const lv = Math.max(8, G.player.level - 1);
+      for (let i = 0; i < 3; i++) { const a = i * 2.1; const p = m.pos.clone().add(V(Math.cos(a) * 7, 0, Math.sin(a) * 7)); p.y = G.world.groundAt(p.x, p.z); const e = G.spawnEnemy('demon', lv, p, { region: 'incursion' }); e.incursion = 3; }
+      setTimeout(() => ui.subtitle('Moloch', 'Every cycle you fight. Every cycle you lose. Why do you keep coming back?!', 3.2, '#ff8080'), 4000);
+    }
+    if (this.incursionWave === 2 && this.moloch && !this.moloch.alive && !this.incursionEnding) { this.incursionEnding = true; setTimeout(() => this.incursionAftermath(), 1600); }
+  }
+  async incursionAftermath() {
+    const G = this.G, P = G.player, ui = G.ui;
+    for (const e of G.enemies.slice()) if (e.incursion) G.removeEnemy(e);
+    this.incursionActive = false; ui.bossBar(null);
+    const lina = this.linaRef;
+    this.cine(true); P.state = 'scripted';
+    P.pos.copy(lina.pos).add(V(Math.sin(lina.yaw) * 1.4, 0, Math.cos(lina.yaw) * 1.4)); P.pos.y = G.world.groundAt(P.pos.x, P.pos.z);
+    this.face(P, lina.pos); this.face(lina, P.pos);
+    P.anim.play('kneel', { restart: true });
+    const mx = (P.pos.x + lina.pos.x) / 2, mz = (P.pos.z + lina.pos.z) / 2, my = P.pos.y;
+    const dx = lina.pos.x - P.pos.x, dz = lina.pos.z - P.pos.z, dl = Math.hypot(dx, dz) || 1;
+    const sx = -dz / dl * 3.2, sz = dx / dl * 3.2;
+    G.cam.play([{ t: 0, pos: [mx + sx, my + 1.3, mz + sz], look: [mx, my + 0.9, mz], fov: 38 }, { t: 30, pos: [mx + sx * 0.75, my + 1.1, mz + sz * 0.75], look: [mx, my + 0.95, mz], fov: 34 }], { holdLast: true });
+    G.music('prologue');
+    await ui.talk([['Moloch', '...Heh... kill the hounds forever, Seven... the sky... will still turn white...', { pitch: 60 }]]);
+    lina.char.setExpression('sad', 99);
+    await ui.talk([L(G, lina, 'You came... You really came back.'), [P.name, 'Of course I did. Are you hurt? Can you stand?'],
+      L(G, lina, `${P.name === '???' ? 'Question Mark' : P.name}— no, listen. When that demon grabbed me... I saw something.`), L(G, lina, 'A white sky. Ash falling like snow. And you — older, bleeding, holding my hand.'),
+      L(G, lina, 'You said, "I\'ll come back. Next time I\'ll remember. I promise."')]);
+    G.post.glitchFor(1.2); Audio.play('glitch'); FX.flash(0.5, '#fff'); P.memorySync += 5;
+    await ui.system(['[MEMORY FRAGMENT — CYCLE 6]', '"...Lina, close your eyes. It won\'t hurt. I\'ll find you again. Whatever it takes."'], { glitch: true, time: 4 });
+    await ui.talk([think(G, 'That was my voice. I said that. To her. In a life I don\'t remember living.'), think(G, 'She was there. In the last cycle. And the one before. And I lost her every single time.')]);
+    const maren = this.npcs.find((n) => n.id === 'maren');
+    maren.pos.copy(P.pos).add(V(2.2, 0, -1.2)); maren.pos.y = G.world.groundAt(maren.pos.x, maren.pos.z); maren.scriptAnim = 'talk'; this.face(maren, P.pos);
+    await ui.talk([L(G, maren, 'Child. ...Both of you. Thank the Goddess.'), L(G, maren, 'Lina\'s grandmother left me a journal. She made me swear to give it to "the one who brings the demons, and then drives them away."'),
+      L(G, maren, 'I thought she was raving. Listen: "The Hound comes when the Player remembers. If he stands and fights, the cycle has a chance. If he runs, we all forget again."')]);
+    const c = await ui.say(maren.name, 'So, Player. Which will it be?', { choices: ['I won\'t run. Not this time.', 'Why did nobody ever tell me any of this?', '...Honestly? I\'m terrified.'], pitch: 200 });
+    if (c === 0) { await ui.talk([L(G, maren, 'Then Elmbrook stands with you. What\'s left of it.'), L(G, lina, '...Mm. Me too.')]); }
+    if (c === 1) await ui.talk([L(G, maren, 'Because every time, we forgot. This journal is the only thing that has ever survived a Long Night. Someone hid it inside the well.')]);
+    if (c === 2) { lina.char.setExpression('happy', 4); await ui.talk([L(G, lina, 'Then we\'ll be terrified together. That\'s still better than forgetting.')]); lina.addAffinity(2); }
+    await ui.system(['[KEY ITEM: Journal of the Sixth Cycle]', 'Its last page shows a circle of seven marks — and six names, all crossed out.'], { style: 'gold', time: 3.4 });
+    if (!G.flags.charm) { await ui.talk([L(G, lina, 'Here. I made this charm for a traveler who\'d come home someday.'), L(G, lina, '...I think I made it for you. A long time ago.')]); G.flags.charm = true; P.recalc(); await ui.system(['[ITEM: Lina\'s Charm]', 'Max HP +20. It smells faintly of bread and smoke.'], { style: 'gold', time: 2.8 }); }
+    this.houseFires(false); lina.scriptAnim = null; maren.scriptAnim = null; lina.char.setExpression('neutral');
+    G.cam.stop(); this.cine(false); P.state = 'move';
+    this.set('incursionDone'); this.incursionWave = 0;
+    this.complete('incursion', { exp: 500, gold: 300, potions: 3 });
+    G.music('village');
+  }
+  async postCredits() {
+    const G = this.G, ui = G.ui;
+    const lina = this.npcs.find((n) => n.id === 'lina'); const w = G.world.markers.villageWell;
+    lina.forceVisible = true; lina.pos.copy(w).add(V(0, 0, 2.2)); lina.pos.y = G.world.groundAt(lina.pos.x, lina.pos.z); lina.scriptAnim = 'pray'; lina.yaw = Math.PI;
+    const hrs = G.hours; G.hours = 23;
+    G.cam.play([{ t: 0, pos: [w.x + 5, w.y + 3, w.z + 8], look: [lina.pos.x, lina.pos.y + 1, lina.pos.z], fov: 40 }, { t: 12, pos: [w.x + 2.5, w.y + 1.6, w.z + 5], look: [lina.pos.x, lina.pos.y + 1.1, lina.pos.z], fov: 34 }], { holdLast: true });
+    await ui.fade(0, 1.5);
+    await ui.talk([['Lina', '...Grandma. I remember now. Not this life — the one before.', { pitch: 330 }], ['Lina', 'He held my hand while the sky turned white. And I promised too.', { pitch: 330 }], ['Lina', 'This time... I\'ll be the one who finds him.', { pitch: 330 }]]);
+    G.post.glitchFor(1); Audio.play('glitch');
+    await ui.system(['[MEMORY ANOMALY DETECTED: LINA OF ELMBROOK]', '[A SECOND REMEMBERER?]'], { style: 'danger', glitch: true, time: 3.2 });
+    await ui.fade(1, 1.2);
+    const card = document.createElement('div'); card.style.cssText = 'position:fixed;inset:0;z-index:51;display:flex;align-items:center;justify-content:center;font-family:var(--title-font);font-size:min(5vw,40px);letter-spacing:8px;text-align:center';
+    card.innerHTML = 'TO BE CONTINUED<br><span style="font-size:.5em;letter-spacing:6px;opacity:.8">PART II — THE GIRL WHO REMEMBERED</span>';
+    document.body.appendChild(card); await wait(3.5); card.remove();
+    lina.forceVisible = false; lina.scriptAnim = null; G.hours = hrs;
+  }
+
+  // ------------------------------------------------------------------ combat barks & boss taunts
+  bark(kind, chance = 1) {
+    if (Math.random() > chance || this.G.cutscene) return;
+    const now = performance.now(); if (now - (this.lastBark || 0) < 3500) return; this.lastBark = now;
+    const P = this.G.player;
+    const lines = {
+      ultimate: ['This is the power I remember!', 'Eternal Realms taught me this. Now it\'s REAL!', 'Every cycle ends here!'],
+      finisher: ['It\'s over.', 'Sleep.', 'Go back to the cycle.', 'Remember THIS.'],
+      parry: ['Too slow!', 'I\'ve seen that move ten thousand times!', 'Predictable!'],
+      lowhp: ['Not yet... I\'m not dying twice!', 'Mio... I still have to... win this...', 'Get up. GET UP.'],
+      combo: ['Can\'t stop me now!', 'Keep it going!', 'S-rank!'],
+    }[kind]; if (!lines) return;
+    this.G.ui.subtitle(P.name === 'UNKNOWN' ? 'You' : P.name, lines[Math.floor(Math.random() * lines.length)], 2.4);
+  }
+  bossTaunt(boss) {
+    if (!boss.alive || this.G.cutscene) return;
+    const k = boss.hp / boss.maxHp; boss._taunts = boss._taunts || 0;
+    const T = {
+      golem: ['[DAMAGE... NONCRITICAL. MEMORY PURGE: 40%.]', '[WARNING. THE SEVENTH IS... STRONGER.]'],
+      behemoth: ['*The Behemoth\'s howl shakes ice from the spires*', '*Its frozen eyes look almost... afraid*'],
+      general: ['Ha! You fight like the last one did!', 'The Administrator will make me again. Will anyone ever make YOU again?'],
+      knight: ['...Kai...? No... I am... no one...', 'Run... before you... become... me...'],
+      herald: ['[ANOMALY RESISTANCE EXCEEDS PROJECTION.]', '[YOUR SISTER IS FOUR YEARS OLDER NOW. SHALL I SHOW YOU HOW SHE GRIEVED?]'],
+      varkas: ['Yes... YES! Exactly like last time!', 'Do you even know whose sword you\'re swinging?'],
+    }[boss.kind]; if (!T) return;
+    if (boss._taunts === 0 && k < 0.66) { boss._taunts = 1; this.G.ui.subtitle(boss.B.name, T[0], 3.2, '#ff8080'); }
+    else if (boss._taunts === 1 && k < 0.3) { boss._taunts = 2; this.G.ui.subtitle(boss.B.name, T[1], 3.6, '#ff8080'); if (boss.kind === 'herald') setTimeout(() => this.G.ui.subtitle(this.G.player.name, '...Shut up. SHUT UP!', 2.4), 3700); }
   }
 
   // ------------------------------------------------------------------ interactions

@@ -864,7 +864,7 @@ export class World {
       this.scene.fog.near = lerp(this.scene.fog.near, P.fogNear * (0.6 + day * 0.4), k); this.scene.fog.far = lerp(this.scene.fog.far, P.fogFar * (0.55 + day * 0.45), k);
       this.sun.intensity = 0.25 + day * 2.4;
       this.sun.color.set(0xfff2d8).lerp(new THREE.Color(0xff9a5a), dusk * 0.7).lerp(new THREE.Color(0x8aa0ff), 1 - day);
-      this.hemi.intensity = 0.45 + day * 0.75;
+      this.hemi.intensity = 0.62 + day * 0.6;
       this.hemi.color.set(0xcfe8ff).lerp(new THREE.Color(0x4a5a9a), 1 - day);
       this.hemi.groundColor.set(region === 'demon' ? 0x5a1a2a : region === 'snow' ? 0x9aaac0 : 0x5a6a3a);
     }

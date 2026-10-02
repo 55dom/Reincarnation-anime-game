@@ -231,9 +231,23 @@ C.ultRaise = once(10, [[0, 'guard'], [0.35, 'ultRaise'], [3, 'ultRaise']]);
 C.kneel = loop(4, [[0, 'kneel'], [2, P(POSE.kneel, { head: [0.3, 0, 0] })], [4, 'kneel']]);
 
 // Attack clips are generated from (wind, hit, follow) poses and timing so moves.js can scale speed.
+/** Blend two poses (names or objects) into a new in-between pose. */
+export function mixPose(a, b, k) {
+  const A = typeof a === 'string' ? POSE[a] : a, B = typeof b === 'string' ? POSE[b] : b;
+  const o = {};
+  for (const j of [...JOINTS, 'pos']) {
+    const x = A[j] || ZERO, y = B[j] || ZERO;
+    o[j] = [lerp(x[0], y[0], k), lerp(x[1], y[1], k), lerp(x[2], y[2], k)];
+  }
+  return o;
+}
 export function attackClip(wind, hit, follow, { fps = 15, tWind = 0.12, tHit = 0.05, tFollow = 0.1, tRecover = 0.2, end = 'guard', holdWind = 0.04 } = {}) {
   const t1 = tWind, t2 = t1 + holdWind, t3 = t2 + tHit, t4 = t3 + tFollow, t5 = t4 + tRecover;
-  return once(fps, [[0, end], [t1, wind], [t2, wind], [t3, hit, true], [t4, follow || hit], [t5, end]], { activeStart: t2, activeEnd: t3 + tFollow * 0.5, total: t5 });
+  follow = follow || hit;
+  // in-betweens: an eased lead into the wind-up, a settle out of the strike and a soft recovery
+  return once(fps, [[0, end], [t1 * 0.55, mixPose(end, wind, 0.72)], [t1, wind], [t2, wind], [t3, hit, true],
+    [t3 + tFollow * 0.45, mixPose(hit, follow, 0.7)], [t4, follow], [t4 + tRecover * 0.45, mixPose(follow, end, 0.55)], [t5, end]],
+  { activeStart: t2, activeEnd: t3 + tFollow * 0.5, total: t5 });
 }
 export const CLIPS = C;
 
@@ -259,13 +273,17 @@ export class Animator {
   sample(t) {
     const c = this.clip; const keys = c.keys; const end = keys[keys.length - 1][0];
     let tt = c.loop ? (t % end) : Math.min(t, end);
-    const fps = this.fpsOverride || c.fps;
+    const smooth = Animator.STYLE === 'smooth';
+    const fps = smooth ? 0 : (this.fpsOverride || c.fps);
     if (fps) tt = Math.floor(tt * fps + 1e-6) / fps; // stepped sampling: the anime "on twos" look
     let i = 0; while (i < keys.length - 2 && keys[i + 1][0] <= tt) i++;
     const [ta, pa] = keys[i], [tb, pb, snap] = keys[i + 1];
     let u = tb > ta ? clamp((tt - ta) / (tb - ta), 0, 1) : 1;
-    if (snap) { u = u > 0 ? 1 : 0; if (u > 0 && this._snapIdx !== i) { this._snapIdx = i; this.onSnap?.(); } } // snap keys jump instantly to the impact pose
-    else u = u * u * (3 - 2 * u);
+    if (snap) {
+      // impact keys: instant in anime mode, a very fast ease-out strike in smooth mode
+      if (u > 0 && this._snapIdx !== i) { this._snapIdx = i; this.onSnap?.(); }
+      u = smooth ? 1 - Math.pow(1 - u, 4) : (u > 0 ? 1 : 0);
+    } else u = smooth ? u * u * u * (u * (u * 6 - 15) + 10) : u * u * (3 - 2 * u);
     const A = this._resolve(pa), B = this._resolve(pb);
     const out = {};
     for (const k of JOINTS) {
@@ -283,7 +301,7 @@ export class Animator {
     if (this.blendFrom && this.blendT < this.blendDur) {
       this.blendT += dt;
       let u = clamp(this.blendT / this.blendDur, 0, 1);
-      u = Math.floor(u * 3) / 3 + (u >= 1 ? 0 : 0); // blend in steps too
+      u = Animator.STYLE === 'smooth' ? u * u * (3 - 2 * u) : Math.floor(u * 3) / 3; // blend in steps in anime mode
       const f = this.blendFrom; const o = {};
       for (const k of JOINTS) { const a = f[k], b = p[k]; o[k] = [lerp(a[0], b[0], u), lerp(a[1], b[1], u), lerp(a[2], b[2], u)]; }
       o.pos = [lerp(f.pos[0], p.pos[0], u), lerp(f.pos[1], p.pos[1], u), lerp(f.pos[2], p.pos[2], u)];
@@ -295,3 +313,5 @@ export class Animator {
   }
 }
 const ZERO = [0, 0, 0];
+// 'smooth' (continuous, clean) or 'anime' (stepped on twos/threes). Switchable in the System menu.
+Animator.STYLE = 'smooth';

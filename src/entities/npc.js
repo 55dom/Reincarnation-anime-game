@@ -58,10 +58,14 @@ export class NPC {
     const dP = this.pos.distanceTo(P.pos);
     // simple visibility culling + sleeping NPCs vanish indoors
     const asleep = this.activity === 'sleep' && this.arrived;
-    const far = dP > 140 || G.world.interior;
+    const far = (dP > 140 || G.world.interior) && !this.forceVisible;
     this.visible = !asleep && !far && !this.hiddenByStory;
     this.root.visible = this.visible;
     if (far) { this.bubble.style.display = 'none'; return; }
+    if (this.scriptAnim) { // story-directed pose (cowering, kneeling...) — stay put
+      this.anim.play(this.scriptAnim); this.anim.update(dt); this.char.updateSecondary(dt, this.vel.set(0, 0, 0));
+      this.root.position.copy(this.pos); this.root.rotation.y = this.yaw; this.root.visible = true; return;
+    }
     // fear: enemies fighting nearby
     const danger = G.inCombat && G.enemies.some((en) => en.alive && en.state !== 'idle' && en.pos.distanceTo(this.pos) < 18);
     if (danger) this.scared = 2;
@@ -106,7 +110,7 @@ export class NPC {
     } else if (dP > 12) this.greeted = false;
     // ambient barks
     this.barkT -= dt;
-    if (this.barkT < 0 && dP < 18 && this.def.barks?.length) { this.barkT = 8 + R() * 14; const b = this.def.barks[Math.floor(R() * this.def.barks.length)]; this.say(typeof b === 'function' ? b(G) : b, 3); }
+    if (this.barkT < 0 && dP < 18 && this.def.barks?.length && !G.inCombat) { this.barkT = 8 + R() * 14; const b = this.def.barks[Math.floor(R() * this.def.barks.length)]; this.say(typeof b === 'function' ? b(G) : b, 3); }
     // physics
     this.pos.addScaledVector(this.vel, dt);
     const before = this.pos.clone();

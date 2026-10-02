@@ -222,8 +222,8 @@ export class Player {
       const d = Math.hypot(dx, dz);
       if (d > 1.6 || Math.abs(dy) > 1) { const T = 0.12; this.vel.set(dx / d * Math.max(0, d - 1.3) / T, dy / T, dz / d * Math.max(0, d - 1.3) / T); this.vel.clampLength(0, 30); }
     }
-    if (m.ultimate) this.G.story.ultimateCinematic(this);
-    if (m.finisher) this.G.story.finisherCinematic(this, this.finishTarget);
+    if (m.ultimate) { this.G.story.ultimateCinematic(this); this.G.story.bark('ultimate'); }
+    if (m.finisher) { this.G.story.finisherCinematic(this, this.finishTarget); setTimeout(() => this.G.story.bark('finisher'), 900); }
     if (m.afterimage) { this.afterimageBurst(3); this.G.post.blur(0.6); FX.speedLines(0.5, 0.2); }
     if (m.slowmo) Time.slowMo(0.4, 0.4);
     if (m.slam) this.vel.y = 5;
@@ -293,6 +293,7 @@ export class Player {
     this.char.setExpression('pain', 0.8);
     Audio.say('hurt', 'hero');
     if (this.hp <= 0) { this.die(); return 'hit'; }
+    if (this.hp < this.maxHp * 0.25) this.G.story.bark('lowhp', 0.6);
     this.move = null; this.trailing = 0;
     if (atk.heavy || atk.launch) {
       this.state = 'knockdown'; this.stateT = 0; this.anim.play('knockdown', { restart: true });
@@ -316,6 +317,7 @@ export class Player {
     this.landedHit = true; this.lastHitT = this.moveT;
     this.combo++; this.comboT = 2.6; this.bestCombo = Math.max(this.bestCombo, this.combo);
     this.G.ui.combo(this.combo);
+    if (this.combo === 20 || this.combo === 40) this.G.story.bark('combo');
     this.limit = Math.min(100, this.limit + (hit.pow || 1) * 2.2);
     this.mp = Math.min(this.maxMp, this.mp + 0.8);
     this.hitCounter++;

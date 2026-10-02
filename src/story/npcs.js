@@ -38,6 +38,19 @@ export function npcDefs(G) {
       barks: ['Grandma\'s cough is getting worse...', 'The well water tastes like iron lately.', (G) => (S.has('metLina') ? 'Don\'t push yourself too hard, okay?' : 'Have I... seen you somewhere?')],
       questMark: () => S.has('metLina') && !S.q('herbs'),
       talk: async (G, n) => {
+        if (S.has('incursionDone') && !S.has('linaStars') && (G.hours > 19 || G.hours < 5)) {
+          // an optional night scene after the raid
+          S.set('linaStars'); n.char.setExpression('sad', 4);
+          await G.ui.talk([L(G, n, 'Can\'t sleep either? ...Every time I close my eyes I see that white sky.'), L(G, n, 'The stars are out, at least. Sit with me a minute.')]);
+          const c = await G.ui.say(n.name, 'Hey... what\'s it like? The place you came from?', { choices: ['Lights everywhere. Nobody looks at the stars.', 'I had a little sister. Mio. She\'s probably still crying.', 'It doesn\'t matter anymore. I\'m here now.'], pitch: 330 });
+          if (c === 0) { await G.ui.talk([L(G, n, 'No stars? That sounds so lonely.'), L(G, n, 'Then look at them with me tonight. For both worlds.')]); n.addAffinity(1); }
+          if (c === 1) { n.char.setExpression('sad', 4); await G.ui.talk([L(G, n, '...Mio.'), L(G, n, 'Then you have to win. So that somewhere, someone gets to stop crying.')]); n.addAffinity(2); }
+          if (c === 2) { await G.ui.talk([L(G, n, 'It matters to me.'), L(G, n, 'Someday tell me properly. Okay?')]); n.addAffinity(1); }
+          const d = await G.ui.say(n.name, 'Promise me something. Whatever happens when the sky turns white... find me again.', { choices: ['I promise.', 'I already promised once, didn\'t I?'], pitch: 330 });
+          n.char.setExpression('happy', 4);
+          await G.ui.talk(d === 1 ? [L(G, n, '...You remember that much, huh.'), L(G, n, 'Then this time, keep it. Idiot.')] : [L(G, n, 'Mm. I\'ll hold you to it.')]);
+          n.addAffinity(1); return;
+        }
         if (!S.q('herbs')) {
           await G.ui.talk([L(G, n, 'Um... could I ask you a favor? Grandma\'s medicine needs slime jelly — it soothes the lungs.'), L(G, n, 'But the slimes in Whisperwood have gotten so aggressive. Nobody wants to go near the forest anymore.')]);
           const c = await G.ui.say(n.name, 'If you could bring back 5 jellies... I can\'t pay much, but I\'ll make you dinner!', { choices: ['Leave it to me.', 'Slimes? Easy. I\'ve killed thousands.', 'Maybe later.'], pitch: 330 });

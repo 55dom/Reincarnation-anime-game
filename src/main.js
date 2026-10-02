@@ -14,6 +14,7 @@ import { Boss } from './entities/boss.js';
 import { UI } from './ui/ui.js';
 import { Story } from './story/story.js';
 import { rng } from './core/util.js';
+import { Animator } from './chars/anim.js';
 import { Grass } from './world/grass.js';
 
 const SAVE_KEY = 'reworld_save_v1';
@@ -34,18 +35,22 @@ class Game {
   async init(progress) {
     const renderer = this.renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
     this.lowgfx = params.has('lowgfx');
-    renderer.setPixelRatio(this.lowgfx ? 0.5 : Math.min(devicePixelRatio, 1.5));
+    this.loadSettings();
+    if (this.lowgfx) this.settings.quality = 'low';
+    Animator.STYLE = this.settings.anim;
+    renderer.setPixelRatio(this.pixelRatio());
     renderer.setSize(innerWidth, innerHeight);
-    renderer.shadowMap.enabled = !this.lowgfx; renderer.shadowMap.type = THREE.PCFShadowMap;
+    renderer.shadowMap.enabled = this.settings.quality !== 'low'; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     document.getElementById('game').appendChild(renderer.domElement);
     this.scene = new THREE.Scene();
     this.camera = new THREE.PerspectiveCamera(55, innerWidth / innerHeight, 0.1, 3200);
-    this.post = new Post(renderer, this.scene, this.camera); this.post.setSize(innerWidth, innerHeight);
+    this.post = new Post(renderer, this.scene, this.camera, { msaa: this.settings.quality === 'low' ? 0 : 4 }); this.post.setSize(innerWidth, innerHeight);
     FX.init(this.scene, this.camera);
     progress('Generating world…'); await frame();
     this.world = new World(this.scene);
     this.world.build((m) => progress(m));
+    if (this.settings.quality === 'high') { const sh = this.world.sun.shadow; sh.mapSize.set(4096, 4096); const sc = sh.camera; sc.left = sc.bottom = -55; sc.right = sc.top = 55; sc.updateProjectionMatrix(); }
     await frame();
     this.grass = new Grass(this.scene);
     this.cam = new CameraRig(this.camera, this.world);
@@ -69,6 +74,19 @@ class Game {
     renderer.compile(this.scene, this.camera);
     this.last = performance.now();
     renderer.setAnimationLoop(() => this.loop());
+  }
+
+  // ------------------------------------------------------------------ settings
+  loadSettings() {
+    this.settings = { anim: 'smooth', quality: 'high' };
+    try { Object.assign(this.settings, JSON.parse(localStorage.getItem('reworld_settings') || '{}')); } catch (e) { /* defaults */ }
+  }
+  saveSettings() { try { localStorage.setItem('reworld_settings', JSON.stringify(this.settings)); } catch (e) { /* ignore */ } }
+  pixelRatio() { return { high: Math.min(devicePixelRatio, 2), medium: 1, low: 0.6 }[this.settings.quality] || 1; }
+  applySettings() {
+    Animator.STYLE = this.settings.anim;
+    this.renderer.setPixelRatio(this.pixelRatio()); this.renderer.setSize(innerWidth, innerHeight); this.post.setSize(innerWidth, innerHeight);
+    this.saveSettings();
   }
 
   // ------------------------------------------------------------------ api used by systems
@@ -189,7 +207,7 @@ class Game {
       if (d < it.r && Math.abs(it.pos.y - P.pos.y) < 4 && d < bd) { bd = d; best = it; }
     }
     for (const n of this.npcs) {
-      if (!n.visible || !n.def.talk) continue;
+      if (!n.visible || !n.def.talk || this.inCombat || n.scriptAnim) continue;
       const d = n.pos.distanceTo(P.pos);
       if (d < 2.8 && d < bd) { bd = d; best = { label: `Talk to ${n.name}`, action: () => n.interact() }; }
     }

@@ -13,7 +13,7 @@ export const JOINTS = ['hips', 'spine', 'chest', 'neck', 'head', 'shL', 'elL', '
 const OL = 0.011; // outline thickness
 
 function headGeo(r) {
-  const g = new THREE.SphereGeometry(r, 22, 16);
+  const g = new THREE.SphereGeometry(r, 32, 24);
   const p = g.attributes.position;
   for (let i = 0; i < p.count; i++) {
     let x = p.getX(i), y = p.getY(i), z = p.getZ(i);
@@ -37,7 +37,7 @@ function headGeo(r) {
 function faceGeo(r) {
   // front partial sphere matching the head (with the same jaw deformation)
   const span = 2.0;
-  const g = new THREE.SphereGeometry(r * 1.012, 20, 14, Math.PI / 2 - span / 2, span, 0.95, 1.55);
+  const g = new THREE.SphereGeometry(r * 1.012, 30, 22, Math.PI / 2 - span / 2, span, 0.95, 1.55);
   const p = g.attributes.position;
   for (let i = 0; i < p.count; i++) {
     let x = p.getX(i), y = p.getY(i), z = p.getZ(i);
@@ -51,7 +51,7 @@ function faceGeo(r) {
 }
 
 /** limb segment: tapered capsule-like cylinder hanging down from the pivot */
-function limb(len, r0, r1, seg = 8) {
+function limb(len, r0, r1, seg = 12) {
   const g = new THREE.CylinderGeometry(r0, r1, len, seg, 2);
   g.translate(0, -len / 2, 0);
   const cap = new THREE.SphereGeometry(r0, seg, 4, 0, Math.PI * 2, 0, Math.PI / 2);
@@ -331,7 +331,16 @@ export class Humanoid {
       f.a.rotation.x = f.rest + Math.min(1.1, Math.max(0, this.sway.z * 0.09)) + flutter + Math.max(0, -this.j.thL.rotation.x * (f.side < 0 ? 0 : 0.6)) + Math.max(0, -this.j.thR.rotation.x * (f.side > 0 ? 0 : 0.6));
       f.b.rotation.x = f.a.rotation.x * 0.4 + flutter;
     }
-    if (this.scarf) { this.scarf[0].rotation.x = 0.3 + Math.min(1.3, this.sway.z * 0.14) + flutter * 2; this.scarf[1].rotation.x = 0.2 + flutter * 2.5 + Math.min(0.6, this.sway.z * 0.05); this.scarf[0].rotation.z = 0.2 + Math.sin(t * 7) * 0.1; }
+    if (this.scarf) {
+      // spring-damped scarf: trails behind when running, hangs when still, never sticks out like a rod
+      const fwd = Math.max(0, Math.min(10, this.sway.z));
+      const want0 = 0.15 + Math.min(1.05, fwd * 0.1) + flutter * 1.5 + Math.max(0, (this.j.spine.rotation.x + this.j.chest.rotation.x)) * 0.8;
+      const k = 1 - Math.exp(-dt * 7);
+      this._sc0 = (this._sc0 ?? want0) + (want0 - (this._sc0 ?? want0)) * k;
+      this._sc1 = (this._sc1 ?? 0.1) + ((0.08 + flutter * 2 + Math.min(0.4, fwd * 0.04)) - (this._sc1 ?? 0.1)) * k;
+      this.scarf[0].rotation.x = Math.min(1.15, this._sc0); this.scarf[1].rotation.x = Math.min(0.5, this._sc1);
+      this.scarf[0].rotation.z = 0.12 + Math.sin(t * 6) * 0.06 * Math.min(1, fwd / 4);
+    }
     if (this.pony) this.pony.rotation.x = Math.min(0.8, this.sway.z * 0.06) + Math.sin(t * 6) * 0.05 - Math.max(-0.5, Math.min(0.5, this.sway.y * 0.04));
     if (this.twin) for (const g of this.twin) g.rotation.x = Math.min(0.9, this.sway.z * 0.07) + Math.sin(t * 6 + g.position.x * 9) * 0.06;
     void moving;
