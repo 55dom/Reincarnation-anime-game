@@ -360,7 +360,7 @@ export const Audio = {
     comp = ctx.createDynamicsCompressor(); comp.threshold.value = -14; comp.ratio.value = 4;
     master.connect(comp); comp.connect(ctx.destination);
     sfxBus = ctx.createGain(); sfxBus.gain.value = 0.9; sfxBus.connect(master);
-    musicBus = ctx.createGain(); musicBus.gain.value = 0.55; musicBus.connect(master);
+    musicBus = ctx.createGain(); musicBus.gain.value = this.musicVol ?? 0.55; musicBus.connect(master);
     ambBus = ctx.createGain(); ambBus.gain.value = 0.8; ambBus.connect(master);
     verb = ctx.createConvolver(); verb.buffer = makeImpulse(); verbSend = ctx.createGain(); verbSend.gain.value = 0.5;
     verbSend.connect(verb); verb.connect(master);
@@ -370,9 +370,13 @@ export const Audio = {
   play(name, ...args) { if (!this.ready) return; try { SFX[name]?.(...args); } catch (e) { /* audio is best-effort */ } },
   say(kind, who, i) { if (!this.ready) return; try { Voice[kind]?.(who, i); } catch (e) { /* noop */ } },
   update(dt) { if (!this.ready) return; this.music.update(); this.amb.update(dt); },
-  setMusicVolume(v) { if (musicBus) musicBus.gain.value = clamp(v, 0, 1); },
+  musicVol: 0.55,
+  setMusicVolume(v) {
+    this.musicVol = clamp(v, 0, 1);
+    if (musicBus) { const t = now(); musicBus.gain.cancelScheduledValues(t); musicBus.gain.setValueAtTime(this.musicVol, t); }
+  },
   duck(amount = 0.3, sec = 0.6) {
-    if (!ctx) return; const t = now();
-    musicBus.gain.cancelScheduledValues(t); musicBus.gain.setValueAtTime(0.55 * amount, t); musicBus.gain.linearRampToValueAtTime(0.55, t + sec);
+    if (!ctx || !this.musicVol) return; const t = now(), v = this.musicVol;
+    musicBus.gain.cancelScheduledValues(t); musicBus.gain.setValueAtTime(v * amount, t); musicBus.gain.linearRampToValueAtTime(v, t + sec);
   },
 };

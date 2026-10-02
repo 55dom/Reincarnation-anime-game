@@ -82,6 +82,10 @@ export class Post {
     this.radial = 0; this.chroma = 0; this.glitch = 0; this.desatT = 0;
     this.baseVignette = 0.35;
   }
+  /** Change MSAA sample count live (the targets are re-allocated on next render). */
+  setSamples(n) {
+    for (const rt of [this.composer.renderTarget1, this.composer.renderTarget2]) if (rt.samples !== n) { rt.samples = n; rt.dispose(); }
+  }
   setSize(w, h) { this.composer.setSize(w, h); this.u.aspect.value = w / h; }
   /** Strong one/two frame "impact frame" in anime style. */
   impactFrame(frames = 2, mode = 1) { this.impactFrames = Math.max(this.impactFrames, frames); this.impactMode = mode; }

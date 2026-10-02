@@ -108,7 +108,7 @@ html, body { margin: 0; height: 100%; overflow: hidden; background: #000; color:
 .statusWin .k { display: inline-block; width: 110px; color: #8fdcff; }
 .statusWin .err { color: var(--err); }
 
-#toastLayer { position: fixed; left: 24px; top: 170px; z-index: 12; display: flex; flex-direction: column; gap: 6px; pointer-events: none; }
+#toastLayer { position: fixed; left: 24px; top: 170px; z-index: 46; display: flex; flex-direction: column; gap: 6px; pointer-events: none; }
 .toast { padding: 6px 14px; background: linear-gradient(90deg, rgba(6,18,40,0.9), transparent); border-left: 3px solid var(--sys); font-size: 16px; font-weight: 700; animation: toastIn 0.3s ease; }
 .toast.gold { border-color: var(--ex); }
 @keyframes toastIn { from { transform: translateX(-30px); opacity: 0; } }

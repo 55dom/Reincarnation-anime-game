@@ -28,7 +28,7 @@ class Game {
     this.flags = {};
     this.enemies = []; this.npcs = []; this.interactables = [];
     this.attackTokens = 0; this.maxTokens = 2;
-    this.hours = 8; this.day = 1; this.musicOn = true; this.freezeEnemies = 0;
+    this.hours = 8; this.day = 1; this.freezeEnemies = 0;
     this.zoneState = [];
     this.inCombat = false; this.combatT = 0;
   }
@@ -41,7 +41,7 @@ class Game {
     Animator.STYLE = this.settings.anim;
     renderer.setPixelRatio(this.pixelRatio());
     renderer.setSize(innerWidth, innerHeight);
-    renderer.shadowMap.enabled = this.settings.quality !== 'low'; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     document.getElementById('game').appendChild(renderer.domElement);
     this.scene = new THREE.Scene();
@@ -51,7 +51,7 @@ class Game {
     progress('Generating world…'); await frame();
     this.world = new World(this.scene);
     this.world.build((m) => progress(m));
-    if (this.settings.quality === 'high') { const sh = this.world.sun.shadow; sh.mapSize.set(4096, 4096); const sc = sh.camera; sc.left = sc.bottom = -55; sc.right = sc.top = 55; sc.updateProjectionMatrix(); }
+    this.applyQuality(true);
     await frame();
     this.grass = new Grass(this.scene, this.mobile ? 9 : 14);
     this.cam = new CameraRig(this.camera, this.world);
@@ -63,9 +63,9 @@ class Game {
     progress('Waking the villagers…'); await frame();
     this.story.init();
     // accessibility wrappers
-    const shake = this.cam.shake.bind(this.cam); this.cam.shake = (a) => { if (!this.flags.noShake) shake(a); };
-    const imp = this.post.impactFrame.bind(this.post); this.post.impactFrame = (f, m) => { if (!this.flags.noFlash) imp(f, m); };
-    const fl = FX.flash.bind(FX); FX.flash = (a, c) => { if (!this.flags.noFlash) fl(a, c); };
+    const shake = this.cam.shake.bind(this.cam); this.cam.shake = (a) => { if (this.settings.shake) shake(a); };
+    const imp = this.post.impactFrame.bind(this.post); this.post.impactFrame = (f, m) => { if (this.settings.flash) imp(f, m); };
+    const fl = FX.flash.bind(FX); FX.flash = (a, c) => { if (this.settings.flash) fl(a, c); };
     Input.attach(renderer.domElement);
     if (this.mobile) { this.touch = new TouchControls(this); document.body.classList.add('touch'); }
     addEventListener('resize', () => { renderer.setSize(innerWidth, innerHeight); this.post.setSize(innerWidth, innerHeight); this.camera.aspect = innerWidth / innerHeight; this.camera.updateProjectionMatrix(); });
@@ -82,8 +82,25 @@ class Game {
   loadSettings() {
     this.mobile = isTouchDevice();
     // phones default to a balanced preset; adaptive resolution then keeps the frame rate smooth
-    this.settings = { anim: 'smooth', quality: this.mobile ? 'medium' : 'high' };
+    this.settings = { anim: 'smooth', quality: this.mobile ? 'medium' : 'high', music: true, shake: true, flash: true };
     try { Object.assign(this.settings, JSON.parse(localStorage.getItem('reworld_settings') || '{}')); } catch (e) { /* defaults */ }
+    if (!['high', 'medium', 'low'].includes(this.settings.quality)) this.settings.quality = 'medium';
+    if (!['smooth', 'anime'].includes(this.settings.anim)) this.settings.anim = 'smooth';
+  }
+  get musicOn() { return this.settings.music; }
+  set musicOn(v) { this.settings.music = !!v; }
+  /** Shadows, shadow resolution and anti-aliasing for the current preset — safe to call mid-game. */
+  applyQuality(initial = false) {
+    const q = this.settings.quality, r = this.renderer;
+    const shadows = q !== 'low';
+    if (r.shadowMap.enabled !== shadows) {
+      r.shadowMap.enabled = shadows;
+      if (!initial) this.scene.traverse((o) => { const m = o.material; if (m) (Array.isArray(m) ? m : [m]).forEach((mm) => (mm.needsUpdate = true)); });
+    }
+    const sh = this.world.sun.shadow, sc = sh.camera, size = q === 'high' ? 4096 : 2048, ext = q === 'high' ? 55 : 45;
+    if (sh.mapSize.x !== size) { sh.mapSize.set(size, size); sh.map?.dispose(); sh.map = null; }
+    sc.left = sc.bottom = -ext; sc.right = sc.top = ext; sc.updateProjectionMatrix();
+    this.post.setSamples(q === 'low' ? 0 : 4);
   }
   saveSettings() { try { localStorage.setItem('reworld_settings', JSON.stringify(this.settings)); } catch (e) { /* ignore */ } }
   pixelRatio() {
@@ -103,6 +120,8 @@ class Game {
   }
   applySettings() {
     Animator.STYLE = this.settings.anim;
+    this.applyQuality();
+    Audio.setMusicVolume(this.settings.music ? 0.55 : 0);
     this.renderer.setPixelRatio(this.pixelRatio()); this.renderer.setSize(innerWidth, innerHeight); this.post.setSize(innerWidth, innerHeight);
     this.saveSettings();
   }
@@ -167,10 +186,10 @@ class Game {
 
   // ------------------------------------------------------------------ save / load
   save() {
-    if (!this.story.has('prologueDone')) return;
+    if (!this.story.has('prologueDone')) return false;
     const data = { v: 1, player: this.player.serialize(), flags: this.flags, hours: this.hours, day: this.day, lastWaystone: this.lastWaystone, interior: null, activeCores: this.player.activeCores };
     if (this.world.interior) data.player.pos = (this.world.markers[this.world.interior === 'dungeon' ? 'dungeonGate' : 'hiddenCave']).toArray();
-    try { localStorage.setItem(SAVE_KEY, JSON.stringify(data)); } catch (e) { /* storage unavailable */ }
+    try { localStorage.setItem(SAVE_KEY, JSON.stringify(data)); return true; } catch (e) { return false; }
   }
   hasSave() { try { return !!localStorage.getItem(SAVE_KEY); } catch (e) { return false; } }
   load() {
@@ -190,6 +209,7 @@ class Game {
   // ------------------------------------------------------------------ start modes
   async start(mode) {
     Audio.init();
+    Audio.setMusicVolume(this.settings.music ? 0.55 : 0);
     document.getElementById('boot').classList.add('hidden');
     this.state = 'play';
     if (this.mobile) goFullscreenLandscape();

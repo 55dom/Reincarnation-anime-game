@@ -327,7 +327,7 @@ export class UI {
         GOLD ${P.gold} &nbsp; POTIONS ${P.potions}<br>BEST COMBO ${P.bestCombo}</div></div>
         <div class="card"><div class="t">MEMORY SYNCHRONIZATION</div><div style="font-size:46px;font-weight:700;color:#5fd8ff">${P.memorySync}%</div><div class="d">Fragments recovered: ${G.flags.fragments?.length || 0} / ${G.world.fragments.length}</div>
         <div class="d" style="margin-top:8px">${P.memorySync < 25 ? '[Most memories are still sealed.]' : P.memorySync < 75 ? '[The cycle is becoming clearer.]' : '[You remember. All of it.]'}</div></div></div>
-        <h3>CONTROLS</h3><div class="d" style="opacity:.8;line-height:1.7">LMB light · RMB heavy · Shift dodge/dash · Space jump · Q block (tap = parry) · E skill · R ultimate · Tab lock-on · F interact/finisher · 1-6 weapons · Enter potion</div>`;
+        <h3>CONTROLS</h3><div class="d" style="opacity:.8;line-height:1.7">${G.mobile ? 'Left thumb move · swipe to look · ATK light · HVY heavy · DASH dodge · JUMP · GUARD block (tap = parry) · SKILL weapon skill · ULT ultimate · ◎ lock-on · F talk/finisher · ⇄ switch weapon · ✚ potion · ☰ menu · ⛶ fullscreen' : `LMB light · RMB heavy · Shift dodge/dash · Space jump · Q block (tap = parry) · E skill · R ultimate · Tab lock-on · F interact/finisher · 1-6 weapons · Enter potion`}</div>`;
     } else if (tab === 'skills') {
       body = '<div class="grid2">' + SKILLS.map((s) => `<div class="card ${P.hasSkill(s.id) ? 'on' : 'locked'}"><div class="t">${s.name} <span style="opacity:.6;font-size:13px">Lv ${s.lv}</span></div><div class="d">${s.desc}</div></div>`).join('') + '</div>' +
         `<h3>COMBO EXAMPLE</h3><div class="d">LIGHT → LIGHT → HEAVY (launch) → DASH (pursue) → AIR ATTACK ×3 → SPECIAL (Skyfall finale)</div>`;
@@ -337,15 +337,20 @@ export class UI {
     else if (tab === 'quests') {
       const Q = G.story.questList();
       body = Q.length ? Q.map((q) => `<div class="quest ${q.done ? 'done' : ''}"><div class="qt">${esc(q.title)}</div><div class="d">${esc(q.desc)}</div>${q.progress ? `<div class="d" style="color:#5fd8ff">${esc(q.progress)}</div>` : ''}</div>`).join('') : '<div class="d">No quests.</div>';
-    } else if (tab === 'map') body = `<canvas class="mapCanvas" id="bigMap" width="640" height="640"></canvas><div class="d" style="text-align:center;margin-top:6px">Click a discovered waystone (◆) to fast travel.</div>`;
+    } else if (tab === 'map') body = `<canvas class="mapCanvas" id="bigMap" width="640" height="640"></canvas><div class="d" id="mapMsg" style="text-align:center;margin-top:6px">${this.G.mobile ? 'Tap' : 'Click'} a discovered waystone (◆) to fast travel.</div>`;
     else if (tab === 'lore') {
       const frags = G.flags.fragments || [];
       body = frags.length ? frags.map((i) => `<div class="card" style="margin-bottom:8px"><div class="t">Memory Fragment #${i + 1}</div><div class="d" style="white-space:pre-line">${esc(G.story.fragmentText(i))}</div></div>`).join('') : '<div class="d">No memories recovered yet. Look for glowing fragments in hidden places.</div>';
     } else if (tab === 'system') {
-      body = `<div class="d">Game is auto-saved at waystones and after story events.</div><br>
-        <button class="act" data-act="save">SAVE NOW</button> <button class="act" data-act="resume">RESUME</button> <button class="act" data-act="music">MUSIC: ${G.musicOn ? 'ON' : 'OFF'}</button> <button class="act" data-act="title">QUIT TO TITLE</button>
-        <h3>ANIMATION & GRAPHICS</h3><button class="act" data-act="anim">ANIMATION: ${G.settings.anim === 'smooth' ? 'SMOOTH' : 'ANIME (STEPPED)'}</button> <button class="act" data-act="quality">RENDER QUALITY: ${G.settings.quality.toUpperCase()}</button>
-        <h3>ACCESSIBILITY</h3><button class="act" data-act="shake">SCREEN SHAKE: ${G.flags.noShake ? 'OFF' : 'ON'}</button> <button class="act" data-act="flash">IMPACT FLASHES: ${G.flags.noFlash ? 'OFF' : 'ON'}</button>`;
+      const S = G.settings, canSave = G.story.has('prologueDone');
+      const qDesc = { high: 'Full resolution, sharp soft shadows, anti-aliasing', medium: 'Balanced resolution, shadows, anti-aliasing', low: 'Lower resolution, no shadows or anti-aliasing — fastest' }[S.quality];
+      body = `<div class="d">Game is auto-saved at waystones and after story events. Settings are remembered on this device.</div><br>
+        <button class="act" data-act="save" ${canSave ? '' : 'disabled'}>${this.savedFlash ? 'SAVED ✓' : canSave ? 'SAVE NOW' : 'SAVE (after prologue)'}</button> <button class="act" data-act="resume">RESUME</button> <button class="act" data-act="title">${this.quitArmed ? 'TAP AGAIN TO QUIT' : 'QUIT TO TITLE'}</button>
+        <h3>AUDIO</h3><button class="act" data-act="music">MUSIC: ${S.music ? 'ON' : 'OFF'}</button>
+        <h3>ANIMATION & GRAPHICS</h3><button class="act" data-act="anim">ANIMATION: ${S.anim === 'smooth' ? 'SMOOTH' : 'ANIME (STEPPED)'}</button> <button class="act" data-act="quality">RENDER QUALITY: ${S.quality.toUpperCase()}</button>
+        <div class="d" style="opacity:.75;margin-top:4px">${S.anim === 'smooth' ? 'Smooth: fluid in-between frames.' : 'Anime: held, snappy key poses like hand-drawn animation.'} · ${qDesc}</div>
+        <h3>ACCESSIBILITY</h3><button class="act" data-act="shake">SCREEN SHAKE: ${S.shake ? 'ON' : 'OFF'}</button> <button class="act" data-act="flash">IMPACT FLASHES: ${S.flash ? 'ON' : 'OFF'}</button>
+        <div class="d" style="opacity:.75;margin-top:4px">Flashes = white screen flashes and inverted impact frames on big hits.</div>`;
     }
     const tabHtml = tab === 'shop' ? '' : `<div class="tabs">${tabs.map(([k, n]) => `<button data-tab="${k}" class="${k === tab ? 'on' : ''}">${n}</button>`).join('')}</div>`;
     this.el.menu.innerHTML = `<div class="panel"><div class="close">${this.G.mobile ? "✕ CLOSE" : "[Esc] close"}</div><h2>${tab === 'shop' ? esc(this.shop?.title || 'SHOP') : 'SYSTEM MENU'}</h2>${tabHtml}${body}</div>`;
@@ -358,15 +363,23 @@ export class UI {
     if (tab === 'map') this.drawBigMap();
   }
   menuAction(a) {
-    const G = this.G;
-    if (a === 'save') { G.save(); this.toast('Saved.'); }
-    if (a === 'resume') this.closeMenu();
-    if (a === 'music') { G.musicOn = !G.musicOn; Audio.setMusicVolume(G.musicOn ? 0.55 : 0); this.renderMenu(); }
-    if (a === 'title') { G.save(); location.reload(); }
-    if (a === 'anim') { G.settings.anim = G.settings.anim === 'smooth' ? 'anime' : 'smooth'; G.applySettings(); this.renderMenu(); }
-    if (a === 'quality') { const order = ['high', 'medium', 'low']; G.settings.quality = order[(order.indexOf(G.settings.quality) + 1) % 3]; G.applySettings(); this.renderMenu(); this.toast('Shadows/AA changes apply fully after reload'); }
-    if (a === 'shake') { G.flags.noShake = !G.flags.noShake; this.renderMenu(); }
-    if (a === 'flash') { G.flags.noFlash = !G.flags.noFlash; this.renderMenu(); }
+    const G = this.G, S = G.settings;
+    if (a !== 'title') this.quitArmed = false;
+    if (a === 'save') {
+      if (G.save()) { this.savedFlash = true; Audio.play('levelUp'); clearTimeout(this._savedT); this._savedT = setTimeout(() => { this.savedFlash = false; if (this.menuOpen === 'system') this.renderMenu(); }, 1500); }
+      this.renderMenu(); return;
+    }
+    if (a === 'resume') { this.closeMenu(); return; }
+    if (a === 'title') {
+      if (!this.quitArmed) { this.quitArmed = true; this.renderMenu(); return; }
+      G.save(); location.reload(); return;
+    }
+    if (a === 'music') S.music = !S.music;
+    if (a === 'anim') S.anim = S.anim === 'smooth' ? 'anime' : 'smooth';
+    if (a === 'quality') { const order = ['high', 'medium', 'low']; S.quality = order[(order.indexOf(S.quality) + 1) % 3]; }
+    if (a === 'shake') { S.shake = !S.shake; if (!S.shake) G.cam.trauma = 0; }
+    if (a === 'flash') S.flash = !S.flash;
+    G.applySettings(); this.renderMenu();
   }
   classBody() {
     const P = this.G.player;
@@ -415,8 +428,15 @@ export class UI {
     if (!G.world.interior) { const [x, y] = pt(G.player.pos.x, G.player.pos.z); g.fillStyle = '#fff'; g.beginPath(); g.arc(x, y, 6, 0, 7); g.fill(); g.strokeStyle = '#f33'; g.lineWidth = 2; g.stroke(); }
     cv.onclick = (e) => {
       const r = cv.getBoundingClientRect(); const mx = (e.clientX - r.left) / r.width * S, my = (e.clientY - r.top) / r.height * S;
-      const hit = this.mapWaystones.find((w) => Math.hypot(w.x - mx, w.y - my) < 12);
-      if (hit && !G.world.interior && !G.ui.boss) { this.closeMenu(); G.fastTravel(hit.k); }
+      const radius = Math.max(14, 30 * S / r.width); // ~30 css px finger target however small the map is drawn
+      let hit = null, best = radius;
+      for (const w of this.mapWaystones) { const d = Math.hypot(w.x - mx, w.y - my); if (d < best) { best = d; hit = w; } }
+      const msg = document.getElementById('mapMsg');
+      if (!hit) { if (msg) msg.textContent = this.mapWaystones.length ? 'No discovered waystone there — tap a bright ◆.' : 'No waystones discovered yet. Touch one in the world to unlock fast travel.'; return; }
+      if (G.world.interior) { if (msg) msg.textContent = "Can't fast travel from inside a dungeon or cave."; return; }
+      if (G.ui.boss) { if (msg) msg.textContent = "Can't fast travel during a boss fight."; return; }
+      if (G.cutscene) return;
+      this.closeMenu(); G.fastTravel(hit.k);
     };
   }
   // shop
