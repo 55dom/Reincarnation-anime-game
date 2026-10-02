@@ -196,6 +196,9 @@ export abstract class Actor implements Combatant {
     this.cooldown -= ctx.dt;
     if (!this.alive) {
       this.deadT += ctx.dt;
+      // Settle the body onto the ground: the death pose lies flat, so drop the hips to floor height.
+      const floor = -(this.rig.hipHeight - (this.rig.kind === 'quad' ? 0.16 : 0.22) * this.rig.scale);
+      this.rig.body.position.y += (floor - this.rig.body.position.y) * Math.min(1, ctx.dt * 7);
       this.integrate(ctx);
       this.anim.update(ctx.dt, { speed: 0, grounded: true, vy: 0, turnRate: 0 });
       this.updateGlow(ctx.dt);

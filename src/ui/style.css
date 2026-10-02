@@ -168,3 +168,15 @@ body.touch .stick.idle { opacity: 0.35; }
 .dmgvig { position: absolute; inset: 0; box-shadow: inset 0 0 120px rgba(160,10,0,0.0); transition: box-shadow 0.25s; }
 .dmgvig.on { box-shadow: inset 0 0 140px rgba(160,10,0,0.55); }
 @media (max-width: 640px) { .classes { grid-template-columns: 1fr; } .objective { font-size: 12px; } .grid { grid-template-columns: repeat(5, 1fr); } }
+
+/* Finisher slash lines + white impact flash */
+.slashfx { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
+.slashfx i { position: absolute; left: -15%; top: 50%; width: 130%; height: 4px; margin-top: -2px;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.95) 18%, #fff 50%, rgba(255,255,255,0.95) 82%, transparent);
+  box-shadow: 0 0 10px #fff, 0 0 28px rgba(255,214,170,0.85);
+  clip-path: inset(0 100% 0 0); animation: slashIn 0.22s cubic-bezier(.2,.9,.2,1) forwards, slashOut 0.6s 0.5s ease-in forwards; }
+.slashfx i.big { height: 6px; box-shadow: 0 0 16px #fff, 0 0 46px rgba(255,190,150,0.9); }
+.slashfx .flash { position: absolute; inset: 0; background: #fff; opacity: 0; animation: flashHit 0.35s ease-out; }
+@keyframes slashIn { to { clip-path: inset(0 0 0 0); } }
+@keyframes slashOut { to { opacity: 0; transform: var(--rot) scaleY(0.2); } }
+@keyframes flashHit { 0% { opacity: 0.55; } 100% { opacity: 0; } }

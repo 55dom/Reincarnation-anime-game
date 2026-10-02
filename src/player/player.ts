@@ -4,7 +4,7 @@ import * as THREE from 'three';
 import { buildHumanoid, type Rig, type HumanoidOpts } from './rig';
 import { ProcAnimator } from './animator';
 import { CLASSES, type ClassDef, type ClassId } from '../combat/classes';
-import { POSE_ROLL, POSE_BACKSTEP, POSE_STAGGER, POSE_DEAD_BIPED, POSE_KNEEL, total, type Move } from '../combat/moves';
+import { POSE_ROLL, POSE_BACKSTEP, POSE_STAGGER, POSE_DEAD_BIPED, POSE_KNEEL, total, keysFor, P as POSES, type Move } from '../combat/moves';
 import { newId, type Combatant, type HitInfo, type HitResult, type Faction } from '../combat/combat';
 import type { Input } from '../core/input';
 import type { Collision } from '../world/collision';
@@ -12,7 +12,14 @@ import { clamp, damp, dampAngle, angleDelta } from '../core/util';
 
 type State = 'move' | 'roll' | 'attack' | 'stagger' | 'dead' | 'busy';
 
-export interface AttackCtx { move: Move; t: number; hitSet: Set<number>; kind: 'light' | 'heavy' | 'charged' | 'roll' | 'special'; flurryTick: number }
+export interface AttackCtx { move: Move; t: number; hitSet: Set<number>; kind: 'light' | 'heavy' | 'charged' | 'roll' | 'special' | 'critical'; flurryTick: number }
+
+/** Critical strike on a staggered foe: a committed lunge-and-drive, shared by every path. */
+const CRIT_TIMING = { windup: 0.28, active: 0.12, recovery: 0.7 };
+export const CRIT_MOVE: Move = {
+  id: 'critical', name: 'Critical Strike', stamina: 8, ...CRIT_TIMING, damage: 0, poise: 0, range: 2.8, arc: 0.9, lunge: 4,
+  keys: keysFor(CRIT_TIMING, POSES.stab_down_wind, POSES.thrust_hit, POSES.stab_down_hit),
+};
 
 const DRIFTER_LOOK: HumanoidOpts = { cloth: 0x6a5040, cloth2: 0x9a8060, leather: 0x4a3424, build: 'light', hood: true, scarf: true, weapon: 'none', skin: 0xb88a68 };
 const DRIFTER_MOVE: Move = { id: 'shove', name: 'Shove', stamina: 10, windup: 0.2, active: 0.1, recovery: 0.35, damage: 3, poise: 5, range: 1.6, arc: 0.8, lunge: 2, keys: [] };
@@ -64,6 +71,9 @@ export class Player implements Combatant {
   private lastPhaseSign = 0;
   busyPose: 'kneel' | null = null;
   damageReduction = 0;
+  /** Returns a staggered foe in reach, turning the next light attack into a critical strike. */
+  criticalCheck: () => Combatant | null = () => null;
+  critTarget: Combatant | null = null;
   get dmgTakenMul() { return 1 - this.damageReduction; }
 
   constructor(private scene: THREE.Scene, private col: Collision) {
@@ -127,7 +137,7 @@ export class Player implements Combatant {
     this.rig.root.position.copy(this.pos);
   }
 
-  isInvulnerable() { return this.iframes || this.state === 'dead'; }
+  isInvulnerable() { return this.iframes || this.state === 'dead' || this.attack?.kind === 'critical'; }
   hasHyperArmor() { return !!(this.attack && this.attack.move.hyperArmor && this.attack.t < this.attack.move.windup + this.attack.move.active); }
 
   onHit(h: HitInfo, res: HitResult) {
@@ -193,7 +203,13 @@ export class Player implements Combatant {
 
   private startAttack(kind: AttackCtx['kind']) {
     let move: Move;
-    if (!this.cls) {
+    const crit = kind === 'light' || kind === 'roll' ? this.criticalCheck() : null;
+    if (crit) {
+      kind = 'critical';
+      move = CRIT_MOVE;
+      this.critTarget = crit;
+      this.comboChain = null;
+    } else if (!this.cls) {
       move = DRIFTER_MOVE;
       move.keys = CLASSES.hunter.light[0].keys;
     } else if (kind === 'light') {
@@ -219,7 +235,8 @@ export class Player implements Combatant {
     this.attack = { move, t: 0, hitSet: new Set(), kind, flurryTick: -1 };
     this.anim.play(move.keys, total(move));
     // Snap toward lock target so committed swings land where the player meant
-    if (this.lockTarget) this.yaw = Math.atan2(this.lockTarget.pos.x - this.pos.x, this.lockTarget.pos.z - this.pos.z);
+    if (crit) this.yaw = Math.atan2(crit.pos.x - this.pos.x, crit.pos.z - this.pos.z);
+    else if (this.lockTarget) this.yaw = Math.atan2(this.lockTarget.pos.x - this.pos.x, this.lockTarget.pos.z - this.pos.z);
   }
 
   update(dt: number, input: Input, camBasis: { fwd: THREE.Vector3; right: THREE.Vector3 }, controlsEnabled: boolean) {
@@ -327,8 +344,9 @@ export class Player implements Combatant {
         }
         const inLunge = a.t > m.windup * 0.7 && a.t < m.windup + m.active;
         let lunge = inLunge ? m.lunge : 0;
-        if (this.lockTarget && inLunge) {
-          const d = Math.hypot(this.lockTarget.pos.x - this.pos.x, this.lockTarget.pos.z - this.pos.z) - this.lockTarget.radius - this.radius;
+        const lungeT = a.kind === 'critical' ? this.critTarget : this.lockTarget;
+        if (lungeT && inLunge) {
+          const d = Math.hypot(lungeT.pos.x - this.pos.x, lungeT.pos.z - this.pos.z) - lungeT.radius - this.radius;
           if (d < 0.6) lunge = 0; // don't push through the target
         }
         this.vel.x = damp(this.vel.x, Math.sin(this.yaw) * lunge, 14, dt);
@@ -391,6 +409,9 @@ export class Player implements Combatant {
     });
     this.rig.root.position.copy(this.pos);
     this.rig.root.rotation.y = this.yaw;
+    // Lying dead: lower the body so it rests on the ground instead of floating at hip height
+    const bodyY = this.state === 'dead' ? -0.55 - (this.rig.hipHeight - 0.22) : -0.55;
+    this.rig.body.position.y += (bodyY - this.rig.body.position.y) * Math.min(1, dt * 7);
 
     // Footstep events from gait phase zero crossings
     const s = Math.sin(this.anim.phase);

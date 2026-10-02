@@ -13,6 +13,7 @@ import { ThirdPersonCamera } from './camera/camera';
 import { Player, type AttackCtx } from './player/player';
 import { CombatWorld, type Combatant } from './combat/combat';
 import { FX } from './combat/fx';
+import { Finisher } from './combat/finisher';
 import { CLASSES, type ClassId } from './combat/classes';
 import { Actor, type AICtx } from './ai/actor';
 import { Wolf, Rabbit } from './ai/beasts';
@@ -48,6 +49,7 @@ export class Game {
   player!: Player;
   combat = new CombatWorld();
   fx!: FX;
+  finisher!: Finisher;
   hud!: HUD;
   inv = new Inventory();
   actors: Actor[] = [];
@@ -119,6 +121,7 @@ export class Game {
     this.fx = new FX(s);
     this.fx.particleScale = this.quality === 2 ? 1 : 0.55;
     this.cam = new ThirdPersonCamera(this.camera, this.col);
+    this.finisher = new Finisher(this.cam, this.hud, this.col);
     this.player = new Player(s, this.col);
     this.player.teleport(SITES.spawn.x, heightAt(SITES.spawn.x, SITES.spawn.z), SITES.spawn.z, Math.PI);
     this.cam.yaw = 0;
@@ -138,6 +141,7 @@ export class Game {
     };
     this.player.onLand = (impact) => { this.fx.dust(this.player.pos.clone(), 6); if (impact > 9) this.cam.addShake(0.15); };
     this.player.onAttackActive = (ctx) => this.playerSwing(ctx);
+    this.player.criticalCheck = () => this.criticalTarget();
     this.player.onSpecial = (ctx) => this.playerSpecial(ctx);
     this.loop();
     this.hud.showTitle(() => this.start());
@@ -221,7 +225,41 @@ export class Game {
     });
   }
 
+  /** A staggered hostile in front of the player and within reach: the next light attack becomes a critical. */
+  private criticalTarget(): Combatant | null {
+    const P = this.player;
+    let best: Combatant | null = null, bd = Infinity;
+    for (const a of this.actors) {
+      if (!a.alive || a.faction !== 'hostile' || a.staggered < 0.12 || a instanceof Dummy) continue;
+      const dx = a.pos.x - P.pos.x, dz = a.pos.z - P.pos.z;
+      const d = Math.hypot(dx, dz) - a.radius;
+      if (d > 2.6 || Math.abs(a.pos.y - P.pos.y) > 1.5) continue;
+      const facing = P.lockTarget === a ? 0 : Math.abs(Math.atan2(Math.sin(Math.atan2(dx, dz) - P.yaw), Math.cos(Math.atan2(dx, dz) - P.yaw)));
+      if (facing > 1.0) continue;
+      if (d < bd) { bd = d; best = a; }
+    }
+    return best;
+  }
+
+  private criticalHit(ctx: AttackCtx) {
+    if (ctx.hitSet.has(-1)) return;
+    ctx.hitSet.add(-1);
+    const t = this.player.critTarget;
+    if (!t || !t.alive) return;
+    const light = this.player.cls?.light[0].damage ?? 6;
+    const dmg = t instanceof DuneWarden ? t.maxHp * 0.08 : Math.max(60, light * 3.5 + 30);
+    const dir = new THREE.Vector3(t.pos.x - this.player.pos.x, 0, t.pos.z - this.player.pos.z).normalize();
+    this.finisher.play('critical', this.player, t);
+    this.combat.resolve(t, { attacker: this.player, damage: dmg, poise: 0, dir, kind: 'execute', bleed: this.player.cls?.id === 'shadebound' ? 30 : 0 });
+    if (t.alive) t.staggered = Math.max(t.staggered, 0.5);
+    const p = t.pos.clone().setY(t.pos.y + t.height * 0.55);
+    this.fx.blood(p, dir, 16);
+    this.fx.spark(p, dir, 0xfff0d0, 12);
+    this.cam.addShake(0.3);
+  }
+
   private playerSwing(ctx: AttackCtx) {
+    if (ctx.kind === 'critical') { this.criticalHit(ctx); return; }
     const bleed = this.player.cls?.id === 'shadebound' ? 14 : 0;
     this.combat.sweep(this.player, ctx.move, ctx.hitSet, bleed ? { bleed } : {});
   }
@@ -253,6 +291,7 @@ export class Game {
         if (executable) {
           const dmg = t instanceof DuneWarden ? t.maxHp * 0.12 : Math.max(160, t.maxHp * 0.5);
           this.player.yaw = Math.atan2(t.pos.x - this.player.pos.x, t.pos.z - this.player.pos.z);
+          this.finisher.play('critical', this.player, t);
           this.combat.resolve(t, { attacker: this.player, damage: dmg, poise: 200, dir: new THREE.Vector3(Math.sin(this.player.yaw), 0, Math.cos(this.player.yaw)), kind: 'execute' });
           t.marked = 0;
           this.fx.ash(t.pos.clone(), 1.2, 18, 0xe3b04b);
@@ -301,13 +340,18 @@ export class Game {
 
   private onKill(t: Actor) {
     if (t === this.rattlejaw) {
-      this.hud.toast('<i>Rattlejaw falls. Take the hide for the ledger.</i>', '', 3);
+      this.finisher.play('kill', this.player, t, { onEnd: () => this.hud.toast('<i>Rattlejaw falls. Take the hide for the ledger.</i>', '', 3) });
     } else if (t === this.garran) {
-      this.hud.toast('<i>Garran Vell is still. His seal hangs at his belt.</i>', '', 3);
+      this.finisher.play('kill', this.player, t, { lastLine: { who: 'Garran Vell', text: 'Read… the letters…' }, onEnd: () => this.hud.toast('<i>Garran Vell is still. His seal hangs at his belt.</i>', '', 3) });
     } else if (t === this.warden) {
-      this.hud.toast('HUNT CLOSED', 'big', 4);
       this.player.lockTarget = null;
-      setTimeout(() => this.hud.toast('<i>Where the Warden fell, a heart of packed sand still beats.</i>', '', 4), 3500);
+      this.finisher.play('boss', this.player, t, {
+        lastLine: { who: 'Dune Warden', text: 'Tell the Ledger… I kept her quiet… as long as… I could.' },
+        onEnd: () => {
+          this.hud.toast('HUNT CLOSED', 'big', 4);
+          setTimeout(() => this.hud.toast('<i>Where the Warden fell, a heart of packed sand still beats.</i>', '', 4), 3500);
+        },
+      });
     }
     if (this.player.lockTarget === t) this.player.lockTarget = null;
   }
@@ -625,6 +669,7 @@ export class Game {
     let dt = Math.min(this.clock.getDelta(), 1 / 20);
     const realDt = dt;
     if (this.hitstop > 0) { this.hitstop -= dt; dt *= 0.08; }
+    dt *= this.finisher.timeScale;
     this.time += dt;
     timeUniform.value = this.time;
     this.input.update(realDt);
@@ -640,7 +685,7 @@ export class Game {
       this.time += dt;
       timeUniform.value = this.time;
       this.input.update(dt);
-      this.update(dt, dt);
+      this.update(dt * this.finisher.timeScale, dt);
       this.input.endFrame();
     }
   }
@@ -648,7 +693,7 @@ export class Game {
   private update(dt: number, realDt: number) {
     const inp = this.input;
     const P = this.player;
-    const controls = this.started && !this.cine && !this.hud.panelOpen && P.state !== 'busy' && P.alive;
+    const controls = this.started && !this.cine && !this.finisher.busy && !this.hud.panelOpen && P.state !== 'busy' && P.alive;
     if (this.partyToastT > 0) this.partyToastT -= dt;
 
     // Global keys
@@ -700,6 +745,7 @@ export class Game {
       a.update(ctx);
       if (a.marked > 0) this.fx.setMark(a.id, a.alive, a.pos, a.height); else this.fx.setMark(a.id, false);
       if (a.snared > 0) this.fx.setSnare(a.id, a.alive, a.pos, a.radius + 0.25); else this.fx.setSnare(a.id, false);
+      this.fx.setGlint(a.id, a.alive && a.faction === 'hostile' && a.staggered > 0.12 && !(a instanceof Dummy) && d < 30, a.pos, a.height);
       // Separation from the player (no walking through bodies)
       if (a.alive && P.alive) {
         const dx = P.pos.x - a.pos.x, dz = P.pos.z - a.pos.z;
@@ -737,6 +783,7 @@ export class Game {
 
     // Cinematic
     if (this.cine) this.updateCine(realDt);
+    this.finisher.update(realDt);
 
     // Environment
     const indoor = this.isInsideGuild();
@@ -852,7 +899,7 @@ export class Game {
         this.scene.remove(a.rig.root);
         this.actors = this.actors.filter((x) => x !== a);
         this.combat.remove(a);
-        this.fx.setMark(a.id, false); this.fx.setSnare(a.id, false);
+        this.fx.setMark(a.id, false); this.fx.setSnare(a.id, false); this.fx.setGlint(a.id, false);
       }
     }
     if (this.ambientT > 60) {

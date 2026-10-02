@@ -16,6 +16,16 @@ export class ThirdPersonCamera {
   private idleLook = 0;
   cinematic: { pos: THREE.Vector3; look: THREE.Vector3; blend: number } | null = null;
   private cinBlend = 0;
+  /** Blend speed into/out of cinematic shots; finishers use fast cuts and a quicker return. */
+  cinRate = 2.2;
+  cinFollow = 2.5;
+  /** Hard cut: jump straight to the shot this frame (no blend). */
+  cut(pos: THREE.Vector3, look: THREE.Vector3) {
+    this.cinematic = { pos: pos.clone(), look: look.clone(), blend: 1 };
+    this.lastCin.pos.copy(pos);
+    this.lastCin.look.copy(look);
+    this.cinBlend = 1;
+  }
   private lastCin = { pos: new THREE.Vector3(), look: new THREE.Vector3() };
   fovBase = 62;
 
@@ -85,10 +95,10 @@ export class ThirdPersonCamera {
     }
 
     // Cinematic override blend
-    this.cinBlend = damp(this.cinBlend, this.cinematic ? 1 : 0, 2.2, dt);
+    this.cinBlend = damp(this.cinBlend, this.cinematic ? 1 : 0, this.cinRate, dt);
     if (this.cinematic) {
-      this.lastCin.pos.lerp(this.cinematic.pos, 1 - Math.exp(-2.5 * dt));
-      this.lastCin.look.lerp(this.cinematic.look, 1 - Math.exp(-3 * dt));
+      this.lastCin.pos.lerp(this.cinematic.pos, 1 - Math.exp(-this.cinFollow * dt));
+      this.lastCin.look.lerp(this.cinematic.look, 1 - Math.exp(-(this.cinFollow + 0.5) * dt));
     } else if (this.cinBlend < 0.01) {
       this.lastCin.pos.copy(pos); this.lastCin.look.copy(lookAt);
     }

@@ -178,6 +178,22 @@ export class HUD {
   }
 
   letterbox(on: boolean) { this.letter.classList.toggle('on', on); }
+
+  /** Finisher overlay: one diagonal slash or a crossing pair, plus a short white impact flash. */
+  slash(kind: 'single' | 'cross', big = false) {
+    const fx = el('div', 'slashfx', '<div class="flash"></div>');
+    const angles = kind === 'single' ? [-18 - Math.random() * 10] : [-24, 22];
+    angles.forEach((deg, i) => {
+      const line = el('i', big ? 'big' : '');
+      const rot = `rotate(${deg}deg)`;
+      line.style.transform = rot;
+      line.style.setProperty('--rot', rot);
+      line.style.animationDelay = `${i * 0.12}s, ${0.5 + i * 0.12}s`;
+      fx.append(line);
+    });
+    this.root.insertBefore(fx, this.letter);
+    setTimeout(() => fx.remove(), 1400);
+  }
   subtitle(who: string | null, text = '') {
     if (!who && !text) { this.subEl.classList.remove('on'); return; }
     this.subEl.innerHTML = (who ? `<span class="who">${who}</span>` : '') + text;

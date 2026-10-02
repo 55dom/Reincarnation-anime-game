@@ -54,6 +54,7 @@ export class FX {
   private sparkTex = radialTexture('rgba(255,240,200,1)', 'rgba(255,120,40,0)');
   private puffTex = radialTexture('rgba(255,255,255,0.8)', 'rgba(255,255,255,0)');
   markSprites = new Map<number, THREE.Sprite>();
+  glints = new Map<number, THREE.Sprite>();
   snareRings = new Map<number, THREE.Mesh>();
   private markTex: THREE.Texture;
   particleScale = 1;
@@ -161,6 +162,22 @@ export class FX {
       }
       s.position.set(pos.x, pos.y + h + 0.3 + Math.sin(performance.now() * 0.004) * 0.06, pos.z);
     } else if (s) { this.scene.remove(s); this.markSprites.delete(id); }
+  }
+
+  /** Staggered foe: a white glint at the chest says "critical strike is open". */
+  setGlint(id: number, on: boolean, pos?: THREE.Vector3, h = 1.8) {
+    let s = this.glints.get(id);
+    if (on && pos) {
+      if (!s) {
+        s = new THREE.Sprite(new THREE.SpriteMaterial({ map: this.sparkTex, color: 0xffffff, transparent: true, depthTest: false, blending: THREE.AdditiveBlending }));
+        s.renderOrder = 11;
+        this.scene.add(s);
+        this.glints.set(id, s);
+      }
+      const t = performance.now() * 0.012;
+      s.scale.setScalar(0.35 + Math.abs(Math.sin(t)) * 0.25);
+      s.position.set(pos.x, pos.y + h * 0.62, pos.z);
+    } else if (s) { this.scene.remove(s); this.glints.delete(id); }
   }
 
   setSnare(id: number, on: boolean, pos?: THREE.Vector3, r = 0.6) {
