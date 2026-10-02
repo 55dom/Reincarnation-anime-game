@@ -11,11 +11,11 @@ const AnimeShader = {
   uniforms: {
     tDiffuse: { value: null }, time: { value: 0 }, radial: { value: 0 }, center: { value: new THREE.Vector2(0.5, 0.5) },
     chroma: { value: 0 }, impact: { value: 0 }, glitch: { value: 0 }, vignette: { value: 0.35 }, sat: { value: 1.08 },
-    tint: { value: new THREE.Vector3(1, 1, 1) }, desat: { value: 0 }, aspect: { value: 1 },
+    tint: { value: new THREE.Vector3(1, 1, 1) }, desat: { value: 0 }, aspect: { value: 1 }, grain: { value: 0 }, cine: { value: 0 },
   },
   vertexShader: `varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }`,
   fragmentShader: /* glsl */`
-    uniform sampler2D tDiffuse; uniform float time, radial, chroma, impact, glitch, vignette, sat, desat, aspect;
+    uniform sampler2D tDiffuse; uniform float time, radial, chroma, impact, glitch, vignette, sat, desat, aspect, grain, cine;
     uniform vec2 center; uniform vec3 tint; varying vec2 vUv;
     float hash(vec2 p){ return fract(sin(dot(p, vec2(12.9898,78.233))) * 43758.5453); }
     void main(){
@@ -61,6 +61,13 @@ const AnimeShader = {
         float scan = step(0.5, fract(vUv.y * 180.0 + time * 40.0)) * 0.08 * glitch;
         col -= scan; col += vec3(0.0, 0.2, 0.35) * glitch * hash(vec2(floor(time * 20.0), floor(vUv.y * 30.0))) * 0.4;
       }
+      // cinematic grade: lifted blacks with a cool shadow / warm highlight split, plus film grain
+      if (cine > 0.0) {
+        float lum = dot(col, vec3(0.299, 0.587, 0.114));
+        vec3 graded = col * 0.94 + 0.02 + mix(vec3(-0.01, 0.0, 0.03), vec3(0.03, 0.015, -0.01), lum);
+        col = mix(col, graded, cine);
+      }
+      if (grain > 0.0) col += (hash(vUv * vec2(1920.0, 1080.0) + fract(time * 24.0) * 91.7) - 0.5) * grain;
       vec2 vv = vUv - 0.5; vv.x *= aspect;
       col *= 1.0 - vignette * smoothstep(0.35, 0.95, length(vv));
       gl_FragColor = vec4(col, 1.0);
@@ -101,7 +108,9 @@ export class Post {
     u.radial.value = this.radial; u.chroma.value = this.chroma; u.glitch.value = this.glitch;
     u.desat.value = damp(u.desat.value, this.desatT, 5, rdt);
     if (this.impactFrames > 0) { u.impact.value = this.impactMode; this.impactFrames--; } else u.impact.value = 0;
-    u.vignette.value = this.baseVignette + this.radial * 0.2;
+    this.cine = damp(this.cine || 0, this.cineT || 0, 3, rdt);
+    u.cine.value = this.cine; u.grain.value = this.cine * 0.016;
+    u.vignette.value = this.baseVignette + this.radial * 0.2 + this.cine * 0.22;
     this.composer.render(rdt);
   }
 }

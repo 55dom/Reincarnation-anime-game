@@ -28,6 +28,7 @@ export class CameraRig {
 
   /** Play a cinematic shot: keys [{t, pos:[x,y,z], look:[x,y,z], fov}] relative to an anchor object or world. */
   play(keys, { anchor = null, onEnd = null, yawOf = null, holdLast = false } = {}) {
+    this.onShot?.();
     this.shot = { keys, t: 0, anchor, onEnd, yawOf, holdLast };
   }
   stop() { this.shot = null; }
@@ -114,6 +115,7 @@ export class CameraRig {
     const S = this.shot; S.t += rdt;
     const keys = S.keys; let i = 0;
     while (i < keys.length - 2 && keys[i + 1].t <= S.t) i++;
+    if (i !== S.lastI) { S.lastI = i; if (keys[i + 1]?.cut) this.onCut?.(); } // hard cut into the next framing
     const a = keys[i], b = keys[Math.min(i + 1, keys.length - 1)];
     let u = b.t > a.t ? clamp((S.t - a.t) / (b.t - a.t), 0, 1) : 1;
     u = b.cut ? (u > 0 ? 1 : 0) : u * u * (3 - 2 * u);

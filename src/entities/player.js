@@ -12,6 +12,7 @@ import { Audio } from '../core/audio.js';
 import { FX } from '../render/fx.js';
 import { clamp, damp, angleDiff, approachAngle } from '../core/util.js';
 import { glowMat } from '../render/toon.js';
+import { Aura } from '../render/aura.js';
 
 export const PLAYER_LOOK = {
   hair: 0x1e2236, hairStyle: 'spiky', eye: 0x49a6ff, top: 0x2c4372, bottom: 0x2c2c38, coat: 0x1d2a4a, scarf: 0xd2303c,
@@ -222,7 +223,7 @@ export class Player {
       const d = Math.hypot(dx, dz);
       if (d > 1.6 || Math.abs(dy) > 1) { const T = 0.12; this.vel.set(dx / d * Math.max(0, d - 1.3) / T, dy / T, dz / d * Math.max(0, d - 1.3) / T); this.vel.clampLength(0, 30); }
     }
-    if (m.ultimate) { this.G.story.ultimateCinematic(this); this.G.story.bark('ultimate'); }
+    if (m.ultimate) { this.aura?.burst(this.pos, 1.3); this.G.story.ultimateCinematic(this); this.G.story.bark('ultimate'); }
     if (m.finisher) { this.G.story.finisherCinematic(this, this.finishTarget); setTimeout(() => this.G.story.bark('finisher'), 900); }
     if (m.afterimage) { this.afterimageBurst(3); this.G.post.blur(0.6); FX.speedLines(0.5, 0.2); }
     if (m.slowmo) Time.slowMo(0.4, 0.4);
@@ -354,9 +355,30 @@ export class Player {
   }
 
   // ------------------------------------------------------------------ update
+  /** Battle aura: glows when LIMIT is full, blazes during the ultimate, flickers red near death.
+   *  Story scenes can force it with this.auraForce = { level, color }. */
+  updateAura() {
+    const G = this.G;
+    if (!this.aura) this.aura = new Aura(G.scene, { height: 1.85, radius: 0.62 });
+    const A = this.aura, full = this.limit >= 100;
+    let target = 0, color = this.weaponDef?.trail ?? 0x9fe8ff, flicker = false;
+    if (this.auraForce) { target = this.auraForce.level; color = this.auraForce.color ?? color; }
+    else if (this.state === 'attack' && this.move?.ultimate) target = 1.25;
+    else if (full) target = G.inCombat ? 0.6 : 0.28;
+    else if (this.hp < this.maxHp * 0.25 && G.inCombat) { target = 0.42; color = 0xff2a3a; flicker = true; }
+    if (!this.alive || !this.char.root.visible) target = 0;
+    if (full && this._limitWasFull === false && G.state === 'play' && !G.cutscene && this.alive) {
+      A.setColor(color); A.burst(this.pos, 0.8);
+      if (this.hasSkill('ultimate')) G.ui.toast('LIMIT FULL — ULTIMATE READY');
+    }
+    this._limitWasFull = full;
+    if (A.color.getHex() !== new THREE.Color(color).getHex()) A.setColor(color);
+    A.flicker = flicker; A.target = target;
+    A.update(this.pos);
+  }
   update(dt) {
     const G = this.G;
-    if (!this.alive) { this.physics(dt); this.anim.update(dt); this.syncModel(dt); return; }
+    if (!this.alive) { this.updateAura(); this.physics(dt); this.anim.update(dt); this.syncModel(dt); return; }
     this.stateT += dt;
     this.iframes = Math.max(0, this.iframes - dt);
     this.armorT = Math.max(0, this.armorT - dt);
@@ -373,6 +395,7 @@ export class Player {
     this.anim.update(dt);
     this.syncModel(dt);
     this.updateTrail();
+    this.updateAura();
     for (let i = this.afterimages.length - 1; i >= 0; i--) {
       const a = this.afterimages[i]; a.t += Time.rdt; a.mat.opacity = 0.45 * (1 - a.t / 0.35);
       if (a.t > 0.35) { G.scene.remove(a.g); this.afterimages.splice(i, 1); }

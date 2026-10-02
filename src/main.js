@@ -13,7 +13,7 @@ import { Enemy, TYPES } from './entities/enemy.js';
 import { Boss } from './entities/boss.js';
 import { UI } from './ui/ui.js';
 import { Story } from './story/story.js';
-import { rng } from './core/util.js';
+import { rng, clamp } from './core/util.js';
 import { Animator } from './chars/anim.js';
 import { Grass } from './world/grass.js';
 import { TouchControls, isTouchDevice, goFullscreenLandscape, canFullscreen, watchFullscreen } from './ui/touch.js';
@@ -55,6 +55,8 @@ class Game {
     await frame();
     this.grass = new Grass(this.scene, this.mobile ? 9 : 14);
     this.cam = new CameraRig(this.camera, this.world);
+    this.cam.onCut = () => { Audio.play('cut'); this.post.aberrate(0.7); };
+    this.cam.onShot = () => { if (this.cutscene && performance.now() - (this.cineAt || 0) > 700) Audio.play('cut', 0.5); };
     this.combat = new Combat(this);
     this.ui = new UI(this);
     this.ui.buildMapImage();
@@ -316,6 +318,10 @@ class Game {
         if (e.alive && (e.state === 'chase' || e.state === 'windup' || e.state === 'attack' || e.state === 'strafe' || e.state === 'act') && e.pos.distanceTo(this.player.pos) < 35 && !e.dormant) combat = true;
         if (e.remove) this.removeEnemy(e);
       }
+      // aura drone: loudest nearby aura (player's own, or a powered-up boss)
+      let hum = (this.player.aura?.level || 0) * 0.8, humPitch = 1;
+      for (const e of this.enemies) if (e.aura && e.aura.level > 0.05) { const k = e.aura.level * clamp(1 - e.pos.distanceTo(this.player.pos) / 32, 0, 1); if (k > hum) { hum = k; humPitch = 0.75; } }
+      Audio.auraHum(this.ui.menuOpen ? 0 : hum, humPitch);
       this.combatT = combat ? 1.5 : this.combatT - rdt;
       this.inCombat = this.combatT > 0;
       for (const n of this.npcs) n.update(dt);
@@ -342,11 +348,18 @@ class Game {
     this.touch?.update();
     if (!this.lowgfx) this.adaptResolution(raw);
     Audio.update(rdt);
+    this.post.cineT = this.cutscene ? 1 : this.ui.dialogueOpen ? 0.45 : 0;
     this.post.render(rdt);
     Input.endFrame();
   }
   ambientParticles() {
     const P = this.player.pos; const k = this.regionKey;
+    // cutscenes / dialogue: drifting light motes around the camera's view for a cinematic haze
+    if ((this.cutscene || this.ui.dialogueOpen) && Math.random() < 0.6) {
+      const c = this.camera.position, d = new THREE.Vector3(); this.camera.getWorldDirection(d);
+      const f = 3 + R() * 9, x = c.x + d.x * f + (R() - 0.5) * 8, z = c.z + d.z * f + (R() - 0.5) * 8;
+      FX.glow.spawn({ x, y: c.y + d.y * f + (R() - 0.5) * 4, z, vx: (R() - 0.5) * 0.3, vy: 0.15 + R() * 0.3, vz: (R() - 0.5) * 0.3, life: 2.5 + R() * 2, size: 0.05 + R() * 0.08, r: 1, g: 0.95, b: 0.8, fadeIn: 0.4 });
+    }
     if (this.world.interior === 'throne') { if (Math.random() < 0.5) FX.glow.spawn({ x: P.x + (R() - 0.5) * 30, y: P.y + R() * 2, z: P.z + (R() - 0.5) * 30, vy: 1 + R(), life: 3, size: 0.25, r: 0.7, g: 0.4, b: 1, fadeIn: 0.3 }); return; }
     if (this.world.interior) { if (Math.random() < 0.2) FX.glow.spawn({ x: P.x + (R() - 0.5) * 20, y: P.y + R() * 5, z: P.z + (R() - 0.5) * 20, vy: 0.3, life: 3, size: 0.15, r: 0.4, g: 0.8, b: 1, fadeIn: 0.3 }); return; }
     if (k === 'snow') for (let i = 0; i < 3; i++) FX.dust.spawn({ x: P.x + (R() - 0.5) * 40, y: P.y + 12, z: P.z + (R() - 0.5) * 40, vx: 2, vy: -3, vz: 0.5, life: 4, size: 0.18, r: 1, g: 1, b: 1, a: 0.9, fadeIn: 0.2 });

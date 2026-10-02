@@ -153,7 +153,9 @@ export class Story {
 
   // ------------------------------------------------------------------ cinematic helpers
   cine(on) {
-    const G = this.G; G.cutscene = on; G.setControl(!on); this.G.ui.letterbox(on);
+    const G = this.G;
+    if (on !== !!G.cutscene) { Audio.play(on ? 'cineIn' : 'cineOut'); if (on) G.cineAt = performance.now(); }
+    G.cutscene = on; G.setControl(!on); this.G.ui.letterbox(on);
     if (on) { this.hudWas = G.ui.hudOn; G.ui.showHUD(false); } else if (this.hudWas) G.ui.showHUD(true);
     if (on) { G.player.vel.set(0, 0, 0); G.player.lock = null; G.cam.lock = null; }
   }

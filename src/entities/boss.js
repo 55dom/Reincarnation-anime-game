@@ -9,6 +9,9 @@ import { FX, Trail } from '../render/fx.js';
 import { Time } from '../core/time.js';
 import { angleDiff, approachAngle, damp, rng, clamp } from '../core/util.js';
 import { glowMat } from '../render/toon.js';
+import { Aura } from '../render/aura.js';
+
+const AURA_COLORS = { golem: 0xffaa55, behemoth: 0x7fd8ff, general: 0xff2244, knight: 0xb04aff, herald: 0xc08aff, varkas: 0xffcc33 };
 
 const R = rng(9001);
 const _v = new THREE.Vector3();
@@ -98,12 +101,21 @@ export class Boss extends Enemy {
   }
   enterPhase2() {
     this.phase = 2; this.act = null; this.state = 'act';
+    this.aura?.burst(this.pos, 1.4);
     this.do('phase2', 2.2, [[0, () => { Audio.play('roar', this.kind === 'herald' ? 1.6 : 0.8); this.G.cam.shake(0.8); FX.flash(0.4, '#fff'); this.G.post.glitchFor(this.kind === 'herald' ? 1 : 0.2); this.invuln = true; this.G.story.bossPhase2?.(this); }], [2.1, () => { this.invuln = false; }]],
       () => { FX.glowBurst(_v.copy(this.pos).setY(this.pos.y + this.height * 0.5), { count: 2, color: [1, 0.3, 0.3], speed: 6, size: 1 }); });
     if (this.kind === 'golem') this.pose = 'beam';
   }
 
-  update(dt) {
+  update(dt) { this.bossUpdate(dt); this.updateAura(); }
+  updateAura() {
+    if (!this.aura) this.aura = new Aura(this.G.scene, { color: AURA_COLORS[this.kind] || 0xff3355, height: this.height, radius: Math.max(0.7, this.radius * 1.5) });
+    const fighting = !this.dormant && this.alive && this.root.visible;
+    this.aura.target = !fighting ? 0 : this.phase === 2 ? 0.9 : 0.22;
+    this.aura.update(this.pos);
+  }
+  dispose() { this.aura?.dispose(); this.aura = null; super.dispose(); }
+  bossUpdate(dt) {
     if (this.dormant) { this.animT += dt; this.physics(dt); this.animate(dt); this.syncModel(dt); return; }
     if (!this.alive || this.state === 'stagger' || this.state === 'finished' || this.state === 'clash') return super.update(dt);
     this.stateT += dt; this.animT += dt;

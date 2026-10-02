@@ -163,6 +163,37 @@ const SFX = {
   whoosh() { noise(now(), 0.6, { gain: 0.2, type: 'bandpass', freq: 200, freqTo: 3000, q: 0.7, a: 0.2 }); },
   laser() { const t = now(); osc('sawtooth', 1800, t, 0.6, { gain: 0.08, pitchTo: 200 }); osc('square', 900, t, 0.6, { gain: 0.04, pitchTo: 100 }); },
   coin() { const t = now(); osc('square', 1975, t, 0.05, { gain: 0.05 }); osc('square', 2637, t + 0.05, 0.15, { gain: 0.05 }); },
+  // ---- aura
+  auraFlare(power = 1) { // low thump + rising roar + shimmering fifth
+    const t = now(), p = Math.min(1.5, power);
+    osc('sine', 70, t, 0.5, { gain: 0.45 * p, pitchTo: 32 });
+    noise(t, 0.9, { gain: 0.22 * p, type: 'bandpass', freq: 150, freqTo: 2600, q: 0.9, a: 0.04, sendVerb: 0.3 });
+    noise(t + 0.05, 0.6, { gain: 0.08 * p, type: 'highpass', freq: 5000, sendVerb: 0.5 });
+    [523, 784, 1047].forEach((f, i) => osc('triangle', f, t + 0.06 + i * 0.05, 0.9, { gain: 0.05, a: 0.05, sendVerb: 0.6, detune: (Math.random() - 0.5) * 12 }));
+  },
+  // ---- dialogue
+  dlgOpen() { const t = now(); noise(t, 0.18, { gain: 0.07, type: 'bandpass', freq: 900, freqTo: 3200, q: 1.2 }); osc('sine', 880, t + 0.03, 0.14, { gain: 0.06, sendVerb: 0.3 }); osc('sine', 1320, t + 0.08, 0.18, { gain: 0.045, sendVerb: 0.4 }); },
+  dlgNext() { const t = now(); osc('triangle', 1568, t, 0.05, { gain: 0.045 }); osc('triangle', 2093, t + 0.035, 0.07, { gain: 0.035 }); },
+  dlgClose() { const t = now(); osc('sine', 1100, t, 0.1, { gain: 0.045, pitchTo: 700 }); noise(t, 0.12, { gain: 0.04, type: 'bandpass', freq: 2400, freqTo: 700, q: 1 }); },
+  dlgEmph() { const t = now(); osc('sine', 110, t, 0.18, { gain: 0.35, pitchTo: 55 }); noise(t, 0.08, { gain: 0.18, type: 'lowpass', freq: 1200 }); osc('square', 660, t, 0.05, { gain: 0.03 }); },
+  dlgHush() { const t = now(); noise(t, 0.5, { gain: 0.05, type: 'bandpass', freq: 600, freqTo: 250, q: 2, a: 0.15, sendVerb: 0.5 }); },
+  choiceMove() { osc('triangle', 1760, now(), 0.04, { gain: 0.04 }); },
+  choiceSelect() { const t = now(); osc('triangle', 1175, t, 0.08, { gain: 0.07 }); osc('triangle', 1760, t + 0.06, 0.2, { gain: 0.06, sendVerb: 0.4 }); },
+  // ---- cinematics
+  cineIn() { // bars slide in: reverse swell into a soft boom
+    const t = now();
+    noise(t, 0.55, { gain: 0.14, type: 'bandpass', freq: 3000, freqTo: 300, q: 0.8, a: 0.4 });
+    osc('sine', 55, t + 0.45, 1.2, { gain: 0.4, pitchTo: 38, sendVerb: 0.4 });
+    noise(t + 0.45, 0.8, { gain: 0.08, type: 'lowpass', freq: 400, sendVerb: 0.5 });
+  },
+  cineOut() { const t = now(); noise(t, 0.5, { gain: 0.09, type: 'bandpass', freq: 250, freqTo: 2400, q: 0.8, a: 0.05 }); osc('sine', 660, t + 0.1, 0.5, { gain: 0.04, sendVerb: 0.6 }); },
+  cut(v = 1) { const t = now(); noise(t, 0.16, { gain: 0.12 * v, type: 'bandpass', freq: 500, freqTo: 4200, q: 1 }); osc('sine', 90, t, 0.12, { gain: 0.12 * v, pitchTo: 50 }); },
+  sting(kind = 'dread') { // short musical punctuation for reveals
+    const t = now();
+    const chords = { dread: [110, 116.5, 164.8], hope: [261.6, 329.6, 392, 523.3], mystery: [196, 233, 277.2, 370] };
+    (chords[kind] || chords.dread).forEach((f, i) => { osc('sawtooth', f, t + i * 0.02, 2.2, { gain: 0.035, a: 0.08, sendVerb: 0.7, detune: (Math.random() - 0.5) * 14 }); osc('sine', f * 2, t, 2.2, { gain: 0.03, a: 0.1, sendVerb: 0.6 }); });
+    osc('sine', 55, t, 1.5, { gain: 0.3, pitchTo: 40 });
+  },
 };
 
 // ---------------------------------------------------------------- Voice grunts
@@ -366,6 +397,26 @@ export const Audio = {
     verbSend.connect(verb); verb.connect(master);
     this.music.init(); this.amb.init();
     this.ready = true;
+  },
+  /** Continuous aura drone; level 0..1+ (called every frame). */
+  auraHum(level = 0, pitch = 1) {
+    if (!this.ready) return;
+    if (!this._hum) {
+      const g = ctx.createGain(); g.gain.value = 0; g.connect(sfxBus);
+      const src = ctx.createBufferSource(); src.buffer = noiseBuf; src.loop = true;
+      const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 320; bp.Q.value = 1.4;
+      const lfo = ctx.createOscillator(); lfo.frequency.value = 5.5; const lg = ctx.createGain(); lg.gain.value = 120; lfo.connect(lg); lg.connect(bp.frequency);
+      src.connect(bp); bp.connect(g);
+      const o1 = ctx.createOscillator(); o1.type = 'sawtooth'; o1.frequency.value = 55; const o2 = ctx.createOscillator(); o2.type = 'sine'; o2.frequency.value = 82.5;
+      const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 260; const og = ctx.createGain(); og.gain.value = 0.35;
+      o1.connect(lp); o2.connect(lp); lp.connect(og); og.connect(g);
+      src.start(); lfo.start(); o1.start(); o2.start();
+      this._hum = { g, bp, o1, o2 };
+    }
+    const H = this._hum, t = now(), v = Math.min(1.2, level);
+    H.g.gain.setTargetAtTime(v * 0.16, t, 0.12);
+    H.bp.frequency.setTargetAtTime(260 + v * 380, t, 0.2);
+    H.o1.frequency.setTargetAtTime(55 * pitch, t, 0.3); H.o2.frequency.setTargetAtTime(82.5 * pitch, t, 0.3);
   },
   play(name, ...args) { if (!this.ready) return; try { SFX[name]?.(...args); } catch (e) { /* audio is best-effort */ } },
   say(kind, who, i) { if (!this.ready) return; try { Voice[kind]?.(who, i); } catch (e) { /* noop */ } },

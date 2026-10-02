@@ -152,11 +152,31 @@ export class UI {
   /** speaker, text → Promise<choiceIndex|undefined> */
   say(name, text, { choices = null, pitch = 220, sys = false, auto = 0 } = {}) {
     return new Promise((resolve) => {
+      const box = this.el.dlg, chained = performance.now() - (this._dlgClosedAt || 0) < 150;
+      const style = speakerStyle(name, sys, this.G.player.name);
+      const sameSpeaker = chained && this._lastSpeaker === name;
       this.dialogueOpen = true; this.G.setControl(false);
-      this.el.dlg.classList.remove('hidden');
+      box.classList.remove('hidden', 'done', 'shake', 'pop', 'swap', 'villain', 'glitchy', 'hush', 'sysdlg');
+      void box.offsetWidth; // restart CSS animations
+      box.style.setProperty('--spk', style.color);
+      box.classList.add(chained ? 'swap' : 'pop');
+      if (style.villain) box.classList.add('villain');
+      if (style.glitch) box.classList.add('glitchy');
+      if (sys) box.classList.add('sysdlg');
+      const hush = /^\s*(\.\.\.|…)/.test(text) && text.length < 60;
+      if (hush) box.classList.add('hush');
       this.el.dName.textContent = name || ''; this.el.dName.classList.toggle('sysname', !!sys); this.el.dName.style.display = name ? '' : 'none';
+      if (!sameSpeaker) { this.el.dName.classList.remove('slide'); void this.el.dName.offsetWidth; this.el.dName.classList.add('slide'); }
       this.el.dText.textContent = ''; this.el.dChoices.innerHTML = '';
-      this.dlg = { text, i: 0, t: 0, choices, resolve, pitch, sel: 0, auto, autoT: 0, sys };
+      // sound + screen flourish for the line
+      clearTimeout(this._dlgCloseSnd);
+      if (!chained) Audio.play('dlgOpen'); else Audio.play('dlgNext');
+      if (style.glitch) { Audio.play('glitch'); this.G.post.glitchFor(0.25); }
+      if ((style.glitch || style.villain) && !chained) Audio.play('sting', style.glitch ? 'mystery' : 'dread');
+      if (hush) Audio.play('dlgHush');
+      const emph = !sys && /!/.test(text) && !/^\[/.test(text);
+      this.dlg = { text, i: 0, t: 0, acc: 0, choices, resolve, pitch, sel: 0, auto, autoT: 0, sys, emph, emphDone: false };
+      this._lastSpeaker = name;
     });
   }
   updateDialogue(dt) {
@@ -166,24 +186,34 @@ export class UI {
     const speed = 55;
     const advance = Input.pressed('interact') || Input.pressed('confirm') || Input.pressed('jump') || Input.pressed('light');
     if (D.i < D.text.length) {
-      const n = Math.min(D.text.length, Math.floor(D.t * speed));
-      if (n > D.i) {
-        if (Math.floor(n / 3) !== Math.floor(D.i / 3) && D.text[n - 1] !== ' ') { if (D.sys) Audio.play('ui'); else Audio.voice.talk ? Audio.say('talk', D.pitch) : 0; }
-        D.i = n; this.el.dText.textContent = D.text.slice(0, D.i);
+      // typewriter with natural beats: short holds after commas, longer after sentence ends
+      D.acc += rdt * speed;
+      const from = D.i;
+      while (D.acc >= 1 && D.i < D.text.length) {
+        const ch = D.text[D.i]; D.i++; D.acc -= 1;
+        if (/[.!?…]/.test(ch) && D.text[D.i] === ' ') D.acc -= 9;
+        else if (/[,;:—]/.test(ch)) D.acc -= 4;
       }
-      if (advance) { D.i = D.text.length; this.el.dText.textContent = D.text; Input.consume('light'); Input.consume('interact'); return; }
-      return;
+      if (D.i > from) {
+        if (Math.floor(D.i / 3) !== Math.floor(from / 3) && D.text[D.i - 1] !== ' ') { if (D.sys) Audio.play('ui'); else Audio.say('talk', D.pitch); }
+        this.el.dText.textContent = D.text.slice(0, D.i);
+        if (D.emph && !D.emphDone && D.text.slice(0, D.i).includes('!')) this.dialogueEmphasis(D);
+      }
+      if (advance) { D.i = D.text.length; this.el.dText.textContent = D.text; if (D.emph && !D.emphDone) this.dialogueEmphasis(D); Input.consume('light'); Input.consume('interact'); }
+      if (D.i < D.text.length) return;
     }
+    if (!this.el.dlg.classList.contains('done')) this.el.dlg.classList.add('done');
     if (D.choices && !this.el.dChoices.children.length) {
       this.el.dChoices.innerHTML = D.choices.map((c, i) => `<button data-i="${i}">${i + 1}. ${esc(c)}</button>`).join('');
-      [...this.el.dChoices.children].forEach((b) => b.addEventListener('click', () => this.closeDialogue(+b.dataset.i)));
+      [...this.el.dChoices.children].forEach((b, i) => { b.style.animationDelay = (i * 0.06) + 's'; b.addEventListener('click', () => this.closeDialogue(+b.dataset.i)); });
+      Audio.play('choiceMove');
       Input.releaseLock();
       this.highlightChoice();
     }
     if (D.choices) {
       for (let i = 0; i < D.choices.length; i++) if (Input.pressed('w' + (i + 1))) { this.closeDialogue(i); return; }
-      if (Input.pressed('down')) { D.sel = (D.sel + 1) % D.choices.length; this.highlightChoice(); }
-      if (Input.pressed('up')) { D.sel = (D.sel + D.choices.length - 1) % D.choices.length; this.highlightChoice(); }
+      if (Input.pressed('down')) { D.sel = (D.sel + 1) % D.choices.length; this.highlightChoice(); Audio.play('choiceMove'); }
+      if (Input.pressed('up')) { D.sel = (D.sel + D.choices.length - 1) % D.choices.length; this.highlightChoice(); Audio.play('choiceMove'); }
       if (Input.pressed('confirm') || Input.pressed('interact')) { this.closeDialogue(D.sel); }
       return;
     }
@@ -191,10 +221,17 @@ export class UI {
     if (advance) { Input.consume('light'); Input.consume('interact'); this.closeDialogue(); }
   }
   highlightChoice() { [...this.el.dChoices.children].forEach((b, i) => b.classList.toggle('sel', i === this.dlg.sel)); }
+  dialogueEmphasis(D) {
+    D.emphDone = true; const box = this.el.dlg;
+    box.classList.remove('shake'); void box.offsetWidth; box.classList.add('shake');
+    Audio.play('dlgEmph');
+  }
   closeDialogue(choice) {
     const D = this.dlg; this.dlg = null;
     this.el.dlg.classList.add('hidden'); this.dialogueOpen = false;
-    Audio.play('ui');
+    this._dlgClosedAt = performance.now();
+    if (D?.choices) Audio.play('choiceSelect');
+    else { clearTimeout(this._dlgCloseSnd); this._dlgCloseSnd = setTimeout(() => { if (!this.dialogueOpen) Audio.play('dlgClose'); }, 120); }
     if (!this.G.cutscene) this.G.setControl(true);
     if (D?.choices && this.G.state === 'play') Input.requestLock();
     D?.resolve(choice);
@@ -459,5 +496,19 @@ export class UI {
   }
 }
 
+/** Per-speaker dialogue colour and mood. */
+const SPEAKERS = {
+  'THE ADMINISTRATOR': { color: '#e8f4ff', glitch: true }, Varkas: { color: '#ffcc33', villain: true }, Moloch: { color: '#ff3355', villain: true },
+  Azgaroth: { color: '#ff4a2a', villain: true }, 'The Forgotten Knight': { color: '#b04aff', villain: true }, Herald: { color: '#c08aff', villain: true },
+  'Ruin Golem': { color: '#ffaa55', villain: true }, Lina: { color: '#ff8fb0' }, Kai: { color: '#7fffd0' }, 'Kai.': { color: '#7fffd0' },
+};
+function speakerStyle(name, sys, playerName) {
+  if (sys) return { color: '#5fd8ff' };
+  if (!name) return { color: '#ffffff' };
+  if (name === 'You' || name === playerName) return { color: '#5fd8ff' };
+  if (SPEAKERS[name]) return SPEAKERS[name];
+  let h = 0; for (const c of name) h = (h * 31 + c.charCodeAt(0)) >>> 0;
+  return { color: `hsl(${h % 360}, 70%, 72%)` };
+}
 function esc(s) { return String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
 export { wait };
