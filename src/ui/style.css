@@ -201,6 +201,10 @@ body.touch .touchControls b { color: var(--sys); }
 .b-pot { width: 40px; height: 40px; right: 214px; bottom: 140px; font-size: 16px; }
 .b-wpn { width: 40px; height: 40px; right: 214px; bottom: 88px; font-size: 16px; }
 .b-menu { width: 44px; height: 44px; left: 50%; top: calc(8px + env(safe-area-inset-top)); margin-left: -22px; border-radius: 10px; font-size: 20px; }
+#rotateHint { position: fixed; inset: 0; z-index: 70; background: #000; color: #dff6ff; display: none; flex-direction: column; align-items: center; justify-content: center; font-size: 18px; letter-spacing: 2px; text-align: center; }
+#rotateHint div { font-size: 64px; animation: spinHint 1.6s infinite ease-in-out; }
+#rotateHint.on { display: flex; }
+@keyframes spinHint { 50% { transform: rotate(90deg); } }
 body.touch #skillBar, body.touch #weaponHint { display: none; }
 body.touch #prompt { top: auto; bottom: 40%; }
 
@@ -234,41 +238,3 @@ body.touch #prompt { top: auto; bottom: 40%; }
   #letterbox.on .bar { height: 7vh; }
 }
 .panel, #dialogue .dchoices { touch-action: pan-y; }
-
-/* portrait phones: play upright — narrow HUD, thumb-sized cluster, single-column menus */
-@media (orientation: portrait) and (max-width: 700px) {
-  #stats { left: calc(10px + env(safe-area-inset-left)); top: calc(8px + env(safe-area-inset-top)); width: min(200px, 52vw); }
-  #stats .nameRow { font-size: 12px; margin-bottom: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .bar { height: 10px; margin: 2px 0; } .bar span { font-size: 10px; top: -2px; }
-  .bar.mp { height: 7px; } .bar.lim { height: 8px; } .bar.lim .lbl { font-size: 8px; line-height: 10px; }
-  #weaponBox { left: calc(10px + env(safe-area-inset-left)); bottom: auto; top: calc(86px + env(safe-area-inset-top)); padding: 2px 10px; }
-  #weaponName { font-size: 12px; }
-  #minimap { width: 88px; height: 88px; right: calc(10px + env(safe-area-inset-right)); top: calc(8px + env(safe-area-inset-top)); }
-  #regionName { top: calc(98px + env(safe-area-inset-top)); right: 4px; width: 104px; font-size: 10px; }
-  #clock { top: calc(113px + env(safe-area-inset-top)); right: 8px; width: 96px; font-size: 10px; }
-  #objective { top: calc(130px + env(safe-area-inset-top)); right: calc(6px + env(safe-area-inset-right)); width: min(200px, 54vw); font-size: 11px; padding: 3px 8px; }
-  #combo { right: 14px; top: 36%; } #comboNum { font-size: 38px; } #combo small { font-size: 11px; letter-spacing: 2px; } #comboRank { font-size: 16px; }
-  #bossBar { bottom: auto; top: calc(62px + env(safe-area-inset-top)); width: 92vw; } #bossBar .bname { font-size: 13px; letter-spacing: 1px; } #bossBar .bar { height: 11px; }
-  body:has(#bossBar:not(.hidden)) #minimap, body:has(#bossBar:not(.hidden)) #regionName, body:has(#bossBar:not(.hidden)) #clock { opacity: .25; }
-  #toastLayer { top: 30%; left: 10px; } .toast { font-size: 11px; padding: 3px 8px; }
-  #sysLayer { top: 14%; } .sys { min-width: 0; width: 88vw; max-width: 88vw; font-size: 13px; padding: 8px 12px; }
-  #dialogue { bottom: calc(3vh + env(safe-area-inset-bottom)); min-height: 110px; padding: 14px 14px 18px; width: 94vw; }
-  .dtext { font-size: 15px; min-height: 60px; } .dname { font-size: 13px; top: -13px; }
-  .dchoices button { font-size: 14px; padding: 8px 10px; width: 100%; }
-  #subtitle { font-size: 14px; bottom: 44vh; max-width: 92vw; }
-  #prompt { font-size: 13px; }
-  body.touch #prompt { bottom: 46%; }
-  .panel { width: 96vw; padding: 12px 12px; max-height: 88vh; } .panel h2 { font-size: 17px; }
-  .grid2 { grid-template-columns: 1fr; gap: 6px; }
-  .card { padding: 6px 10px; } .card .t { font-size: 14px; } .card .d { font-size: 12px; }
-  .statusWin { font-size: 13px; line-height: 1.4; }
-  .close { font-size: 16px; padding: 6px 10px; background: rgba(95,216,255,.2); border: 1px solid var(--sys); cursor: pointer; opacity: 1; }
-  #boot .bootInner { padding: 0 16px; }
-  #boot .logo { font-size: 15vw; letter-spacing: 3px; } #boot .sub { font-size: 12px; letter-spacing: 5px; margin-bottom: 22px; }
-  #boot button { min-width: 0; width: 84vw; font-size: 15px; letter-spacing: 2px; padding: 12px 10px; }
-  #titleCard .t1 { font-size: 17vw; letter-spacing: 3px; } #titleCard .t2 { font-size: 4.2vw; letter-spacing: 5px; }
-  #letterbox.on .bar { height: 9vh; }
-  #touchBtns { transform: scale(.84); transform-origin: bottom right; bottom: calc(20px + env(safe-area-inset-bottom)); }
-  .b-menu { left: auto; margin-left: 0; right: calc(108px + env(safe-area-inset-right)); }
-  #stick { width: 110px; height: 110px; margin: -55px 0 0 -55px; } #stick .knob { left: 30px; top: 30px; }
-}

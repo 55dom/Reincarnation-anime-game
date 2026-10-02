@@ -16,7 +16,7 @@ import { Story } from './story/story.js';
 import { rng } from './core/util.js';
 import { Animator } from './chars/anim.js';
 import { Grass } from './world/grass.js';
-import { TouchControls, isTouchDevice, goFullscreen } from './ui/touch.js';
+import { TouchControls, isTouchDevice, goFullscreenLandscape } from './ui/touch.js';
 
 const SAVE_KEY = 'reworld_save_v1';
 const R = rng(4321);
@@ -192,7 +192,7 @@ class Game {
     Audio.init();
     document.getElementById('boot').classList.add('hidden');
     this.state = 'play';
-    if (this.mobile) goFullscreen();
+    if (this.mobile) goFullscreenLandscape();
     Input.requestLock();
     if (mode === 'continue' && this.load()) {
       this.ui.showHUD(true); this.player.state = 'move'; this.cam.orbitTo(this.player.yaw + Math.PI, 0.3);

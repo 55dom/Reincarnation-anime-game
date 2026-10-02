@@ -22,7 +22,7 @@ waystones and after story events (**CONTINUE** appears on the title screen).
 
 Phones and tablets are detected automatically: you get a floating joystick (left thumb), swipe-to-look
 on the right half, on-screen ATK / HVY / DASH / JUMP / GUARD / SKILL / ULT / F buttons, a ☰ menu,
-fullscreen, and a compact HUD that works in portrait or landscape. Graphics start on the Medium preset and the render
+fullscreen + landscape lock, and a compact HUD. Graphics start on the Medium preset and the render
 resolution adapts automatically to keep the frame rate smooth (desktop quality is unaffected).
 To try it on your phone, run `npm run dev` on your computer and open the printed **Network** address
 (e.g. `http://192.168.x.x:5173`) on a phone on the same Wi-Fi — or host the `npm run build` output.

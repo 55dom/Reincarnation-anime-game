@@ -34,7 +34,7 @@ export class TouchControls {
     this.stickId = null; this.lookId = null; this.lookLast = null;
     this.look.addEventListener('pointerdown', (e) => {
       e.preventDefault(); this.look.setPointerCapture?.(e.pointerId);
-      if ((innerHeight > innerWidth ? e.clientX < innerWidth * 0.5 && e.clientY > innerHeight * 0.4 : e.clientX < innerWidth * 0.42) && this.stickId === null) {
+      if (e.clientX < innerWidth * 0.42 && this.stickId === null) {
         this.stickId = e.pointerId; this.origin = { x: e.clientX, y: e.clientY };
         this.stick.style.left = e.clientX + 'px'; this.stick.style.top = e.clientY + 'px'; this.stick.classList.add('on'); this.moveKnob(0, 0);
       } else if (this.lookId === null) { this.lookId = e.pointerId; this.lookLast = { x: e.clientX, y: e.clientY }; }
@@ -60,6 +60,7 @@ export class TouchControls {
       if (e.target.closest('button') || G.ui.dlg?.choices) return;
       Input._down('confirm'); setTimeout(() => Input._up('confirm'), 60);
     });
+    this.rotate = document.createElement('div'); this.rotate.id = 'rotateHint'; this.rotate.innerHTML = '<div>⟳</div>Rotate your phone to landscape'; document.body.appendChild(this.rotate);
     this.show(false);
   }
   moveKnob(x, y) { this.knob.style.transform = `translate(${x}px, ${y}px)`; }
@@ -68,6 +69,7 @@ export class TouchControls {
     const G = this.G;
     const playing = G.state === 'play' && !G.cutscene && !G.ui.menuOpen && !G.ui.dialogueOpen && G.player.alive;
     this.show(playing);
+    this.rotate.classList.toggle('on', G.state === 'play' && innerHeight > innerWidth);
     if (!playing) { this.stickId = null; this.lookId = null; Input.touchMove = null; this.stick.classList.remove('on'); }
     // context highlights
     const P = G.player;
@@ -80,6 +82,7 @@ export class TouchControls {
   }
 }
 
-export async function goFullscreen() {
+export async function goFullscreenLandscape() {
   try { if (!document.fullscreenElement) await document.documentElement.requestFullscreen?.({ navigationUI: 'hide' }); } catch (e) { /* not allowed */ }
+  try { await screen.orientation?.lock?.('landscape'); } catch (e) { /* not supported (iOS) */ }
 }
