@@ -52,7 +52,7 @@ class InputSys {
   }
   onKey(fn) { this.listeners.push(fn); }
   lockCanvas() { try { const r = this.canvas?.requestPointerLock?.(); r?.catch?.(() => {}); } catch (e) { /* not allowed right now */ } }
-  requestLock() { this.wantLock = true; if (!this.locked) this.lockCanvas(); }
+  requestLock() { if (this.touch) return; this.wantLock = true; if (!this.locked) this.lockCanvas(); }
   releaseLock() { this.wantLock = false; if (document.pointerLockElement) document.exitPointerLock(); }
   _down(a) { if (!this.held[a]) { this.held[a] = true; this.pressedAt[a] = Time.real; this.frameDown[a] = true; } }
   _up(a) { if (this.held[a]) { this.held[a] = false; this.releasedAt[a] = Time.real; this.frameUp[a] = true; } }
@@ -95,6 +95,7 @@ class InputSys {
     let kx = (this.held.right ? 1 : 0) - (this.held.left ? 1 : 0);
     let ky = (this.held.up ? 1 : 0) - (this.held.down ? 1 : 0);
     if (kx || ky) { this.usingPad = false; const l = Math.hypot(kx, ky); kx /= l; ky /= l; }
+    if (this.touchMove && !kx && !ky) { px = this.touchMove.x; py = -this.touchMove.y; }
     this.moveX = this.enabled ? (kx || px) : 0;
     this.moveY = this.enabled ? (ky || -py) : 0;
   }

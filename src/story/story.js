@@ -410,7 +410,7 @@ export class Story {
     ui.titleCard(true, '');
     await wait(3.6);
     ui.titleCard(true, 'PRESS ANY KEY');
-    await new Promise((res) => { const f = () => { removeEventListener('keydown', f); removeEventListener('mousedown', f); res(); }; addEventListener('keydown', f); addEventListener('mousedown', f); });
+    await new Promise((res) => { const f = () => { removeEventListener('keydown', f); removeEventListener('mousedown', f); removeEventListener('pointerdown', f); res(); }; addEventListener('keydown', f); addEventListener('mousedown', f); addEventListener('pointerdown', f); });
     Audio.play('system');
     ui.titleCard(false);
     this.cine(false); P.state = 'move';
@@ -817,7 +817,7 @@ export class Story {
     card.innerHTML = '<div style="font-family:var(--title-font);font-size:min(10vw,90px);font-weight:900;letter-spacing:8px;text-shadow:0 0 30px rgba(95,216,255,.7)">RE<span style="color:#ff3355">:</span>WORLD</div><div style="font-family:var(--title-font);letter-spacing:10px;font-size:22px;margin-top:8px">END OF PART I — THE FORGOTTEN PLAYER</div><div style="margin-top:40px;opacity:.8;letter-spacing:3px">The world remains open. 312 days remain.<br>Find the remaining memories. Grow stronger. Remember.</div><div style="margin-top:40px;font-size:14px;opacity:.6;animation:blink .8s infinite alternate">PRESS ANY KEY</div>';
     document.body.appendChild(card);
     await wait(2);
-    await new Promise((res) => { const f = () => { removeEventListener('keydown', f); removeEventListener('mousedown', f); res(); }; addEventListener('keydown', f); addEventListener('mousedown', f); });
+    await new Promise((res) => { const f = () => { removeEventListener('keydown', f); removeEventListener('mousedown', f); removeEventListener('pointerdown', f); res(); }; addEventListener('keydown', f); addEventListener('mousedown', f); addEventListener('pointerdown', f); });
     card.remove();
     await this.postCredits();
     G.cam.stop(); this.cine(false); ui.showHUD(true);

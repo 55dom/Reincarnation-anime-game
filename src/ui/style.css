@@ -172,3 +172,69 @@ html, body { margin: 0; height: 100%; overflow: hidden; background: #000; color:
 #boot .controls { margin-top: 30px; font-size: 14px; opacity: 0.75; line-height: 1.7; }
 #boot .controls b { color: var(--sys); }
 #loading { margin-top: 18px; font-size: 14px; letter-spacing: 3px; color: var(--sys); }
+
+/* ---------- Touch / phone ---------- */
+html, body { touch-action: none; overscroll-behavior: none; -webkit-user-select: none; -webkit-touch-callout: none; }
+.touchControls { display: none; }
+body.touch #boot .controls { display: none; }
+body.touch .touchControls { display: block; margin-top: 18px; font-size: 13px; opacity: .8; line-height: 1.7; }
+body.touch .touchControls b { color: var(--sys); }
+#touch { position: fixed; inset: 0; z-index: 15; pointer-events: none; }
+#touchLook { position: absolute; inset: 0; pointer-events: auto; touch-action: none; }
+#stick { position: absolute; width: 120px; height: 120px; margin: -60px 0 0 -60px; border-radius: 50%; border: 2px solid rgba(255,255,255,.35); background: rgba(0,0,0,.18); opacity: 0; pointer-events: none; transition: opacity .15s; }
+#stick.on { opacity: 1; }
+#stick .knob { position: absolute; left: 35px; top: 35px; width: 50px; height: 50px; border-radius: 50%; background: rgba(255,255,255,.55); box-shadow: 0 0 12px rgba(95,216,255,.6); }
+#touchBtns { position: absolute; right: calc(14px + env(safe-area-inset-right)); bottom: calc(12px + env(safe-area-inset-bottom)); width: 260px; height: 250px; pointer-events: none; }
+.tbtn { position: absolute; pointer-events: auto; touch-action: none; display: flex; align-items: center; justify-content: center; border-radius: 50%; font-weight: 700; font-size: 13px; letter-spacing: 1px; color: #fff; background: rgba(6,18,40,.55); border: 2px solid rgba(95,216,255,.55); box-shadow: 0 0 10px rgba(0,0,0,.4); text-shadow: 0 0 4px #000; user-select: none; }
+.tbtn.on { background: rgba(95,216,255,.45); transform: scale(.92); }
+.tbtn.ready { border-color: #ffd34d; box-shadow: 0 0 16px rgba(255,210,80,.8); animation: blink .5s infinite alternate; }
+.tbtn.locked { opacity: .3; }
+.b-atk { width: 86px; height: 86px; right: 0; bottom: 0; font-size: 18px; border-color: #fff; }
+.b-hvy { width: 62px; height: 62px; right: 96px; bottom: 6px; }
+.b-dodge { width: 62px; height: 62px; right: 12px; bottom: 96px; }
+.b-jump { width: 56px; height: 56px; right: 86px; bottom: 78px; }
+.b-skill { width: 52px; height: 52px; right: 168px; bottom: 12px; font-size: 11px; }
+.b-block { width: 52px; height: 52px; right: 152px; bottom: 74px; font-size: 11px; }
+.b-ult { width: 52px; height: 52px; right: 80px; bottom: 146px; font-size: 12px; }
+.b-int { width: 50px; height: 50px; right: 150px; bottom: 136px; font-size: 15px; }
+.b-lock { width: 44px; height: 44px; right: 16px; bottom: 170px; font-size: 18px; }
+.b-pot { width: 40px; height: 40px; right: 214px; bottom: 140px; font-size: 16px; }
+.b-wpn { width: 40px; height: 40px; right: 214px; bottom: 88px; font-size: 16px; }
+.b-menu { width: 44px; height: 44px; left: 50%; top: calc(8px + env(safe-area-inset-top)); margin-left: -22px; border-radius: 10px; font-size: 20px; }
+#rotateHint { position: fixed; inset: 0; z-index: 70; background: #000; color: #dff6ff; display: none; flex-direction: column; align-items: center; justify-content: center; font-size: 18px; letter-spacing: 2px; text-align: center; }
+#rotateHint div { font-size: 64px; animation: spinHint 1.6s infinite ease-in-out; }
+#rotateHint.on { display: flex; }
+@keyframes spinHint { 50% { transform: rotate(90deg); } }
+body.touch #skillBar, body.touch #weaponHint { display: none; }
+body.touch #prompt { top: auto; bottom: 40%; }
+
+/* compact HUD for short (phone landscape) screens */
+@media (max-height: 520px) {
+  #stats { left: calc(12px + env(safe-area-inset-left)); top: 8px; width: 210px; }
+  #stats .nameRow { font-size: 13px; margin-bottom: 1px; }
+  .bar { height: 10px; margin: 2px 0; } .bar span { font-size: 10px; top: -2px; }
+  .bar.mp { height: 7px; } .bar.lim { height: 8px; } .bar.lim .lbl { font-size: 8px; line-height: 10px; }
+  #minimap { width: 96px; height: 96px; right: calc(10px + env(safe-area-inset-right)); top: 8px; }
+  #regionName { top: 106px; right: 0; width: 120px; font-size: 11px; }
+  #clock { top: 122px; right: 8px; width: 110px; font-size: 10px; }
+  #objective { top: 140px; right: calc(8px + env(safe-area-inset-right)); width: 190px; font-size: 11px; padding: 3px 8px; }
+  #weaponBox { left: calc(12px + env(safe-area-inset-left)); bottom: auto; top: 86px; padding: 2px 10px; }
+  #weaponName { font-size: 12px; }
+  #combo { right: 290px; top: 30%; } #comboNum { font-size: 40px; } #combo small { font-size: 12px; } #comboRank { font-size: 18px; }
+  #bossBar { bottom: auto; top: 46px; width: 46%; } #bossBar .bname { font-size: 13px; letter-spacing: 1px; }
+  #toastLayer { top: 112px; left: 12px; } .toast { font-size: 12px; padding: 3px 10px; }
+  #sysLayer { top: 8%; } .sys { min-width: 260px; max-width: 70vw; font-size: 14px; padding: 8px 16px; }
+  .statusWin { font-size: 14px; line-height: 1.4; }
+  #dialogue { bottom: 3vh; min-height: 90px; padding: 12px 18px 14px; width: min(760px, 88vw); }
+  .dtext { font-size: 15px; min-height: 40px; } .dname { font-size: 14px; top: -14px; }
+  .dchoices button { font-size: 14px; padding: 6px 10px; }
+  #subtitle { font-size: 14px; bottom: 30vh; }
+  .panel { padding: 12px 16px; max-height: 92vh; } .panel h2 { font-size: 18px; } .grid2 { grid-template-columns: 1fr 1fr; gap: 6px 12px; }
+  .card { padding: 6px 10px; } .card .t { font-size: 14px; } .card .d { font-size: 12px; }
+  .close { font-size: 16px; padding: 6px 10px; background: rgba(95,216,255,.2); border: 1px solid var(--sys); cursor: pointer; opacity: 1; }
+  #boot .logo { font-size: 54px; } #boot .sub { font-size: 13px; margin-bottom: 14px; }
+  #boot button { min-width: 260px; font-size: 15px; padding: 8px 18px; }
+  #titleCard .t1 { font-size: 64px; } #titleCard .t2 { font-size: 16px; }
+  #letterbox.on .bar { height: 7vh; }
+}
+.panel, #dialogue .dchoices { touch-action: pan-y; }

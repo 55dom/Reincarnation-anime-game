@@ -348,7 +348,8 @@ export class UI {
         <h3>ACCESSIBILITY</h3><button class="act" data-act="shake">SCREEN SHAKE: ${G.flags.noShake ? 'OFF' : 'ON'}</button> <button class="act" data-act="flash">IMPACT FLASHES: ${G.flags.noFlash ? 'OFF' : 'ON'}</button>`;
     }
     const tabHtml = tab === 'shop' ? '' : `<div class="tabs">${tabs.map(([k, n]) => `<button data-tab="${k}" class="${k === tab ? 'on' : ''}">${n}</button>`).join('')}</div>`;
-    this.el.menu.innerHTML = `<div class="panel"><div class="close">[Esc] close</div><h2>${tab === 'shop' ? esc(this.shop?.title || 'SHOP') : 'SYSTEM MENU'}</h2>${tabHtml}${body}</div>`;
+    this.el.menu.innerHTML = `<div class="panel"><div class="close">${this.G.mobile ? "✕ CLOSE" : "[Esc] close"}</div><h2>${tab === 'shop' ? esc(this.shop?.title || 'SHOP') : 'SYSTEM MENU'}</h2>${tabHtml}${body}</div>`;
+    this.el.menu.querySelector('.close').addEventListener('click', () => this.closeMenu());
     this.el.menu.querySelectorAll('[data-tab]').forEach((b) => b.addEventListener('click', () => { this.menuOpen = b.dataset.tab; this.renderMenu(); Audio.play('ui'); }));
     this.el.menu.querySelectorAll('[data-equip]').forEach((b) => b.addEventListener('click', () => { P.equip(b.dataset.equip); this.renderMenu(); }));
     this.el.menu.querySelectorAll('[data-act]').forEach((b) => b.addEventListener('click', () => this.menuAction(b.dataset.act, b)));

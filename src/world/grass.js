@@ -4,13 +4,14 @@ import * as THREE from 'three';
 import { gradientMap } from '../render/toon.js';
 import { biomeAt, roadDist, terrainHeight } from './terrain.js';
 
-const CELL = 3, RADIUS = 14; // cells
+const CELL = 3; let RADIUS = 14; // cells
 const PER_CELL = 5;
 
 function hash(x, z, k) { const h = Math.sin(x * 127.1 + z * 311.7 + k * 74.7) * 43758.5453; return h - Math.floor(h); }
 
 export class Grass {
-  constructor(scene) {
+  constructor(scene, radius = 14) {
+    RADIUS = radius;
     // one clump = three crossed tapered blades
     const pos = [], col = [];
     for (let i = 0; i < 3; i++) {

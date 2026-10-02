@@ -16,6 +16,7 @@ import { Story } from './story/story.js';
 import { rng } from './core/util.js';
 import { Animator } from './chars/anim.js';
 import { Grass } from './world/grass.js';
+import { TouchControls, isTouchDevice, goFullscreenLandscape } from './ui/touch.js';
 
 const SAVE_KEY = 'reworld_save_v1';
 const R = rng(4321);
@@ -52,7 +53,7 @@ class Game {
     this.world.build((m) => progress(m));
     if (this.settings.quality === 'high') { const sh = this.world.sun.shadow; sh.mapSize.set(4096, 4096); const sc = sh.camera; sc.left = sc.bottom = -55; sc.right = sc.top = 55; sc.updateProjectionMatrix(); }
     await frame();
-    this.grass = new Grass(this.scene);
+    this.grass = new Grass(this.scene, this.mobile ? 9 : 14);
     this.cam = new CameraRig(this.camera, this.world);
     this.combat = new Combat(this);
     this.ui = new UI(this);
@@ -66,6 +67,7 @@ class Game {
     const imp = this.post.impactFrame.bind(this.post); this.post.impactFrame = (f, m) => { if (!this.flags.noFlash) imp(f, m); };
     const fl = FX.flash.bind(FX); FX.flash = (a, c) => { if (!this.flags.noFlash) fl(a, c); };
     Input.attach(renderer.domElement);
+    if (this.mobile) { this.touch = new TouchControls(this); document.body.classList.add('touch'); }
     addEventListener('resize', () => { renderer.setSize(innerWidth, innerHeight); this.post.setSize(innerWidth, innerHeight); this.camera.aspect = innerWidth / innerHeight; this.camera.updateProjectionMatrix(); });
     // warm up shaders
     this.player.pos.set(LOC.wake.x, this.world.groundAt(LOC.wake.x, LOC.wake.z), LOC.wake.z);
@@ -78,11 +80,27 @@ class Game {
 
   // ------------------------------------------------------------------ settings
   loadSettings() {
-    this.settings = { anim: 'smooth', quality: 'high' };
+    this.mobile = isTouchDevice();
+    // phones default to a balanced preset; adaptive resolution then keeps the frame rate smooth
+    this.settings = { anim: 'smooth', quality: this.mobile ? 'medium' : 'high' };
     try { Object.assign(this.settings, JSON.parse(localStorage.getItem('reworld_settings') || '{}')); } catch (e) { /* defaults */ }
   }
   saveSettings() { try { localStorage.setItem('reworld_settings', JSON.stringify(this.settings)); } catch (e) { /* ignore */ } }
-  pixelRatio() { return { high: Math.min(devicePixelRatio, 2), medium: 1, low: 0.6 }[this.settings.quality] || 1; }
+  pixelRatio() {
+    const base = { high: Math.min(devicePixelRatio, 2), medium: this.mobile ? Math.min(devicePixelRatio, 1.5) : 1, low: this.mobile ? 1 : 0.6 }[this.settings.quality] || 1;
+    return base * (this.resScale || 1);
+  }
+  /** Dynamic resolution: drop render scale when frames get slow, raise it back when there's headroom. */
+  adaptResolution(raw) {
+    this.frameEMA = this.frameEMA ? this.frameEMA * 0.95 + raw * 0.05 : raw;
+    this.adaptT = (this.adaptT || 0) + raw;
+    if (this.adaptT < 2.5 || this.state !== 'play') return;
+    this.adaptT = 0;
+    const prev = this.resScale || 1;
+    if (this.frameEMA > 1 / 40 && prev > 0.55) this.resScale = Math.max(0.55, prev - 0.1);
+    else if (this.frameEMA < 1 / 56 && prev < 1) this.resScale = Math.min(1, prev + 0.05);
+    if (this.resScale !== prev) { this.renderer.setPixelRatio(this.pixelRatio()); this.renderer.setSize(innerWidth, innerHeight); this.post.setSize(innerWidth, innerHeight); }
+  }
   applySettings() {
     Animator.STYLE = this.settings.anim;
     this.renderer.setPixelRatio(this.pixelRatio()); this.renderer.setSize(innerWidth, innerHeight); this.post.setSize(innerWidth, innerHeight);
@@ -174,6 +192,7 @@ class Game {
     Audio.init();
     document.getElementById('boot').classList.add('hidden');
     this.state = 'play';
+    if (this.mobile) goFullscreenLandscape();
     Input.requestLock();
     if (mode === 'continue' && this.load()) {
       this.ui.showHUD(true); this.player.state = 'move'; this.cam.orbitTo(this.player.yaw + Math.PI, 0.3);
@@ -300,6 +319,8 @@ class Game {
     this.ambientParticles(rdt);
     FX.update((x, z) => this.world.groundAt(x, z));
     this.ui.update(rdt);
+    this.touch?.update();
+    if (!this.lowgfx) this.adaptResolution(raw);
     Audio.update(rdt);
     this.post.render(rdt);
     Input.endFrame();

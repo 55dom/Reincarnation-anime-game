@@ -18,6 +18,15 @@ Use a desktop browser with WebGL2. Headphones recommended. Click **NEW GAME** to
 cinematic prologue, or **SKIP PROLOGUE** to start in the forest. Progress auto-saves at
 waystones and after story events (**CONTINUE** appears on the title screen).
 
+## Playing on a phone
+
+Phones and tablets are detected automatically: you get a floating joystick (left thumb), swipe-to-look
+on the right half, on-screen ATK / HVY / DASH / JUMP / GUARD / SKILL / ULT / F buttons, a ☰ menu,
+fullscreen + landscape lock, and a compact HUD. Graphics start on the Medium preset and the render
+resolution adapts automatically to keep the frame rate smooth (desktop quality is unaffected).
+To try it on your phone, run `npm run dev` on your computer and open the printed **Network** address
+(e.g. `http://192.168.x.x:5173`) on a phone on the same Wi-Fi — or host the `npm run build` output.
+
 ## Controls
 
 | Action | Keyboard / Mouse | Gamepad |
