@@ -216,6 +216,12 @@ export class Player {
     if (m.charge) { Audio.play('charge'); FX.glowBurst(_v.copy(this.pos).setY(this.pos.y + 1.1), { count: 20, color: new THREE.Color(this.weaponDef.trail).toArray(), speed: -3, size: 0.4, life: 0.4 }); this.G.cam.punch(0.8); }
     if (m.pursuit) this.doPursuit();
     if (m.air && !this.inAir && !m.pursuit) { this.vel.y = 4; this.inAir = true; }
+    if (m.air && !m.pursuit && !m.slam && this.target?.alive && this.target.state === 'air') {
+      // air attacks home in on the juggled enemy so aerial combos connect reliably
+      const t = this.target; const dx = t.pos.x - this.pos.x, dz = t.pos.z - this.pos.z, dy = t.pos.y + (t.height || 1.4) * 0.3 - this.pos.y;
+      const d = Math.hypot(dx, dz);
+      if (d > 1.6 || Math.abs(dy) > 1) { const T = 0.12; this.vel.set(dx / d * Math.max(0, d - 1.3) / T, dy / T, dz / d * Math.max(0, d - 1.3) / T); this.vel.clampLength(0, 30); }
+    }
     if (m.ultimate) this.G.story.ultimateCinematic(this);
     if (m.finisher) this.G.story.finisherCinematic(this, this.finishTarget);
     if (m.afterimage) { this.afterimageBurst(3); this.G.post.blur(0.6); FX.speedLines(0.5, 0.2); }
@@ -316,7 +322,7 @@ export class Player {
     const f = this.fusion && FUSIONS[this.fusion];
     if (f?.special === 'spellblade' && this.hitCounter % 3 === 0) this.fireArc(1, 0.9);
     if (f?.special === 'holy') this.heal(dmg * 0.04, true);
-    if (hit.launch && this.move?.launcher) this.launchTarget = t;
+    if (hit.launch && this.move?.launcher) { this.launchTarget = t; this.pursuitWindow = 0.9; }
     void crit;
   }
   fireArc(count = 3, dmgMult = 1.6, color = 0x6fd8ff) {
@@ -353,6 +359,7 @@ export class Player {
     this.iframes = Math.max(0, this.iframes - dt);
     this.armorT = Math.max(0, this.armorT - dt);
     this.counterWindow = Math.max(0, this.counterWindow - dt);
+    this.pursuitWindow = Math.max(0, (this.pursuitWindow || 0) - dt);
     if (this.comboT > 0) { this.comboT -= dt; if (this.comboT <= 0) { this.combo = 0; G.ui.combo(0); } }
     // regen
     const s = this.stats;
@@ -408,6 +415,7 @@ export class Player {
         const fin = this.finisherCandidate();
         if (fin && Input.pressed('interact')) { this.finishTarget = fin; this.startMove('finisher'); break; }
         if (!fin && Input.pressed('interact')) G.tryInteract();
+        if (this.pursuitWindow > 0 && this.launchTarget?.alive && this.launchTarget.state === 'air' && this.hasSkill('aerial') && (Input.peekBuffered('dodge', 0.3) || Input.peekBuffered('jump', 0.3))) { Input.consume('dodge'); Input.consume('jump'); this.pursuitWindow = 0; this.startMove('pursuit'); break; }
         if (Input.buffered('dodge', 0.15)) {
           if (!this.inAir || !this.airDashUsed) { this.startDodge(); break; }
         }
@@ -525,7 +533,9 @@ export class Player {
         let sp = s;
         if (this.target?.alive && !m.passThrough) {
           const d = Math.hypot(this.target.pos.x - this.pos.x, this.target.pos.z - this.pos.z) - (this.target.radius || 0.5) - 0.9;
-          sp = d <= 0 ? 0 : Math.min(s * 1.6, d / Math.max(0.01, (b - t) / spd));
+          const nextHit = m.hits[this.hitsDone]?.at;
+          const arrive = nextHit != null && nextHit > t + 0.02 ? Math.min(b, nextHit - 0.01) : b;
+          sp = d <= 0 ? 0 : Math.min(s * 1.6, d / Math.max(0.01, (arrive - t) / spd));
           this.faceTarget(this.target, false);
         }
         this.forward(_v); this.vel.x = _v.x * sp; this.vel.z = _v.z * sp;
@@ -569,6 +579,7 @@ export class Player {
     if (ctl) {
       const canChain = t >= m.cancel;
       const canDodge = t >= m.dodgeCancel || (this.landedHit && t > (this.lastHitT || 0) + 0.04);
+      if (this.pursuitWindow > 0 && m.launcher && this.launchTarget?.alive && this.hasSkill('aerial') && (Input.peekBuffered('dodge', 0.3) || Input.peekBuffered('jump', 0.3))) { Input.consume('dodge'); Input.consume('jump'); this.pursuitWindow = 0; this.startMove('pursuit'); return; }
       if (canDodge && Input.peekBuffered('dodge', 0.18)) {
         Input.consume('dodge');
         if (m.next?.dodge && this.landedHit && this.launchTarget?.alive && this.hasSkill('aerial')) { this.startMove(m.next.dodge); return; }
@@ -577,13 +588,17 @@ export class Player {
       if (canChain && m.next?.jump && Input.peekBuffered('jump', 0.18) && this.landedHit && this.launchTarget?.alive && this.hasSkill('aerial')) { Input.consume('jump'); this.startMove(m.next.jump); return; }
       if (canChain && Input.peekBuffered('special', 0.25)) { Input.consume('special'); if (this.useSpecial()) return; }
       if (canChain && Input.peekBuffered('ultimate', 0.25) && this.limit >= 100 && this.hasSkill('ultimate')) { Input.consume('ultimate'); this.limit = 0; this.startMove('ultimate'); return; }
-      if (canChain && Input.peekBuffered('light', 0.3)) {
+      // combo queue: when both attack buttons are buffered, honor the one pressed first
+      const BUF = 0.45;
+      const lightQ = Input.peekBuffered('light', BUF), heavyQ = Input.peekBuffered('heavy', BUF);
+      const heavyFirst = heavyQ && (!lightQ || Input.pressedAt.heavy < Input.pressedAt.light);
+      if (canChain && lightQ && !heavyFirst) {
         let nx = m.next?.light;
         if (this.counterWindow > 0 && this.hasSkill('counter') && !m.air) nx = 'counter';
         if (this.inAir && !(nx || '').startsWith('a') && this.hasSkill('aerial')) nx = 'a1';
         if (nx && this.moves[nx] && (!this.moves[nx].skill || this.hasSkill(this.moves[nx].skill))) { Input.consume('light'); this.startMove(nx); return; }
       }
-      if (canChain && Input.peekBuffered('heavy', 0.3)) {
+      if (canChain && heavyQ) {
         let nx = m.next?.heavy;
         if (nx === 'rise' && !this.hasSkill('rise')) nx = 'heavy';
         if (this.inAir && this.hasSkill('aerial')) nx = 'slam';

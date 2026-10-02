@@ -23,21 +23,21 @@ export function buildMoves() {
   const mk = (id, clip, o) => { M[id] = { id, clip, ...o }; return M[id]; };
   // --- ground light chain
   mk('l1', attackClip('l1Wind', 'l1Hit', 'l1Follow', { fps: 15, tWind: 0.1, holdWind: 0.03, tHit: 0.05, tFollow: 0.1, tRecover: 0.25 }), {
-    hits: [h(0.16, { slash: { roll: -0.6, flip: true, scale: 1.1 }, stop: 0.05 })], lunge: [[0.1, 0.22, 7]], cancel: 0.2, dodgeCancel: 0.18,
+    hits: [h(0.16, { slash: { roll: -0.6, flip: true, scale: 1.1 }, stop: 0.05 })], lunge: [[0, 0.22, 14]], cancel: 0.2, dodgeCancel: 0.18,
     next: { light: 'l2', heavy: 'heavy' }, voice: 0, skill: 'slash' });
   mk('l2', attackClip('l2Wind', 'l2Hit', 'l2Follow', { fps: 15, tWind: 0.08, holdWind: 0.03, tHit: 0.05, tFollow: 0.1, tRecover: 0.25 }), {
-    hits: [h(0.14, { slash: { roll: 0.25, flip: false, scale: 1.15 }, stop: 0.05 })], lunge: [[0.08, 0.2, 7]], cancel: 0.18, dodgeCancel: 0.16,
+    hits: [h(0.14, { slash: { roll: 0.25, flip: false, scale: 1.15 }, stop: 0.05 })], lunge: [[0, 0.2, 14]], cancel: 0.18, dodgeCancel: 0.16,
     next: { light: 'l3', heavy: 'rise' }, voice: 1, skill: 'slash' });
   mk('l3', attackClip('l3Wind', 'l3Hit', 'l3Follow', { fps: 12, tWind: 0.14, holdWind: 0.06, tHit: 0.06, tFollow: 0.14, tRecover: 0.3 }), {
     hits: [h(0.24, { arc: 3.6, range: 1.25, dmg: 1.6, kb: 7, stun: 0.5, stop: 0.12, shake: 0.35, posture: 16, pow: 1.6, slash: { roll: 0.08, flip: true, scale: 1.6 }, crit: 0.1 })],
-    lunge: [[0.12, 0.28, 8]], cancel: 0.34, dodgeCancel: 0.3, next: { light: 'l1', heavy: 'heavy' }, voice: 2, big: true, skill: 'slash' });
+    lunge: [[0, 0.28, 14]], cancel: 0.34, dodgeCancel: 0.3, next: { light: 'l1', heavy: 'heavy' }, voice: 2, big: true, skill: 'slash' });
   // --- heavy & launcher
   mk('heavy', attackClip('hWind', 'hHit', 'hFollow', { fps: 12, tWind: 0.2, holdWind: 0.12, tHit: 0.05, tFollow: 0.18, tRecover: 0.32 }), {
     hits: [h(0.36, { arc: 1.6, range: 1.2, dmg: 2.2, kb: 9, stun: 0.7, stop: 0.16, shake: 0.5, posture: 35, pow: 1.9, guardBreak: true, down: true, ground: true, slash: { roll: 1.45, flip: false, scale: 1.5 }, crit: 0.15 })],
-    lunge: [[0.3, 0.4, 6]], cancel: 0.5, dodgeCancel: 0.42, next: { light: 'l1' }, voice: 2, big: true, skill: 'heavy', armor: 0.3 });
+    lunge: [[0, 0.4, 10]], cancel: 0.5, dodgeCancel: 0.42, next: { light: 'l1' }, voice: 2, big: true, skill: 'heavy', armor: 0.3 });
   mk('rise', attackClip('rWind', 'rHit', 'rFollow', { fps: 12, tWind: 0.12, holdWind: 0.06, tHit: 0.05, tFollow: 0.15, tRecover: 0.3 }), {
     hits: [h(0.2, { arc: 1.8, range: 1.1, dmg: 1.3, kb: 0.5, launch: 13, stun: 1.0, stop: 0.1, shake: 0.3, posture: 12, pow: 1.4, slash: { roll: -1.5, flip: false, scale: 1.4 } })],
-    lunge: [[0.1, 0.2, 5]], hop: [0.2, 6], cancel: 0.26, dodgeCancel: 0.24, next: { light: 'l1', heavy: 'heavy', dodge: 'pursuit', jump: 'pursuit' }, voice: 1, skill: 'rise', launcher: true });
+    lunge: [[0, 0.2, 12]], hop: [0.2, 6], cancel: 0.26, dodgeCancel: 0.24, next: { light: 'l1', heavy: 'heavy', dodge: 'pursuit', jump: 'pursuit' }, voice: 1, skill: 'rise', launcher: true });
   // --- dash slash & pursuit
   mk('dashSlash', attackClip('dWind', 'dHit', 'dHit', { fps: 15, tWind: 0.06, holdWind: 0.02, tHit: 0.06, tFollow: 0.12, tRecover: 0.25 }), {
     hits: [h(0.1, { arc: 2.6, range: 1.3, dmg: 1.4, kb: 2, stun: 0.5, stop: 0.08, shake: 0.25, posture: 12, pow: 1.3, slash: { roll: 0.0, flip: true, scale: 1.8 }, multi: true })],

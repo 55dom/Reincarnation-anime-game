@@ -33,10 +33,10 @@ class InputSys {
     addEventListener('keyup', (e) => { const a = KEYMAP[e.code]; if (a) this._up(a); this._up('any'); });
     canvas.addEventListener('mousedown', (e) => {
       this._down('any');
-      if (!this.locked && this.wantLock) { canvas.requestPointerLock?.(); }
       if (e.button === 0) this._down('light');
       if (e.button === 2) this._down('heavy');
       if (e.button === 1) { e.preventDefault(); this._down('lock'); }
+      if (!this.locked && this.wantLock) this.lockCanvas();
     });
     addEventListener('mouseup', (e) => {
       if (e.button === 0) this._up('light');
@@ -51,7 +51,8 @@ class InputSys {
     addEventListener('blur', () => { for (const a of ACTIONS) this.held[a] = false; });
   }
   onKey(fn) { this.listeners.push(fn); }
-  requestLock() { this.wantLock = true; if (!this.locked) this.canvas?.requestPointerLock?.(); }
+  lockCanvas() { try { const r = this.canvas?.requestPointerLock?.(); r?.catch?.(() => {}); } catch (e) { /* not allowed right now */ } }
+  requestLock() { this.wantLock = true; if (!this.locked) this.lockCanvas(); }
   releaseLock() { this.wantLock = false; if (document.pointerLockElement) document.exitPointerLock(); }
   _down(a) { if (!this.held[a]) { this.held[a] = true; this.pressedAt[a] = Time.real; this.frameDown[a] = true; } }
   _up(a) { if (this.held[a]) { this.held[a] = false; this.releasedAt[a] = Time.real; this.frameUp[a] = true; } }

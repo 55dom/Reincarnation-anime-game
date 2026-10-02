@@ -39,8 +39,8 @@ html, body { margin: 0; height: 100%; overflow: hidden; background: #000; color:
 .bar.hp .fill { background: linear-gradient(90deg, #a8123a, var(--hp)); }
 .bar.mp { height: 10px; width: 85%; } .bar.mp .fill { background: linear-gradient(90deg, #1a4fa8, var(--mp)); } .bar.mp span { font-size: 11px; top: -3px; }
 .bar.ex { height: 4px; width: 70%; } .bar.ex .fill { background: var(--ex); }
-.bar.lim { height: 8px; width: 60%; } .bar.lim .fill { background: linear-gradient(90deg, #b3460c, var(--lim)); }
-.bar.lim .lbl { left: 6px; right: auto; top: -4px; font-size: 10px; color: #fff; }
+.bar.lim { height: 11px; width: 60%; } .bar.lim .fill { background: linear-gradient(90deg, #b3460c, var(--lim)); }
+.bar.lim .lbl { left: 6px; right: auto; top: -2px; font-size: 10px; line-height: 14px; color: #fff; }
 .bar.lim.full .fill { animation: limPulse 0.5s infinite alternate; }
 @keyframes limPulse { from { filter: brightness(1); } to { filter: brightness(1.8); } }
 

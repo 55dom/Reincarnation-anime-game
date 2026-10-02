@@ -734,7 +734,12 @@ export class Story {
     const p = P.pos;
     G.cam.play([{ t: 0, pos: [p.x + 4, p.y + 2, p.z + 6], look: [p.x, p.y + 8, p.z - 10], fov: 50 }, { t: 30, pos: [p.x + 2, p.y + 1.2, p.z + 4], look: [p.x, p.y + 14, p.z - 20], fov: 46 }], { holdLast: true });
     const eye = new THREE.Mesh(new THREE.SphereGeometry(10, 24, 16), glowMat(0xffffff, 0.9)); eye.position.set(p.x, p.y + 30, p.z - 50); eye.scale.y = 0.4; G.scene.add(eye);
-    const pupil = new THREE.Mesh(new THREE.SphereGeometry(4, 16, 12), new THREE.MeshBasicMaterial({ color: 0x5fd8ff })); pupil.position.copy(eye.position).add(V(0, 0, 4)); G.scene.add(pupil);
+    const pupil = new THREE.Mesh(new THREE.SphereGeometry(4, 16, 12), new THREE.MeshBasicMaterial({ color: 0x0a1020 })); pupil.position.copy(eye.position).add(V(0, 0, 4)); pupil.scale.set(0.45, 1.1, 0.4); G.scene.add(pupil);
+    const iris = new THREE.Mesh(new THREE.TorusGeometry(4.6, 0.7, 8, 40), glowMat(0x5fd8ff, 1)); iris.position.copy(eye.position).add(V(0, 0, 3.2)); G.scene.add(iris);
+    const lid = new THREE.Mesh(new THREE.TorusGeometry(10.5, 1.2, 6, 48), new THREE.MeshBasicMaterial({ color: 0x101018 })); lid.position.copy(eye.position); lid.scale.y = 0.42; G.scene.add(lid);
+    const rings = [0, 1, 2].map((i) => { const r = new THREE.Mesh(new THREE.TorusGeometry(16 + i * 6, 0.25, 4, 64), glowMat(0xfff0a0, 0.6)); r.position.copy(eye.position); G.scene.add(r); return r; });
+    const spin = setInterval(() => { rings.forEach((r, i) => { r.rotation.x += 0.004 * (i + 1); r.rotation.y += 0.003 * (i + 1); }); iris.rotation.z += 0.02; }, 16);
+    eye.userData.extra = [iris, lid, ...rings]; eye.userData.spin = spin;
     G.music('prologue');
     await wait(1.5);
     await ui.system(['[ADMINISTRATOR ACCESS GRANTED]'], { glitch: true, time: 2 });
@@ -747,7 +752,7 @@ export class Story {
     await ui.system(['[PRIMARY OBJECTIVE UPDATED]', 'STOP THE RESET.'], { style: 'gold', time: 3 });
     P.memorySync = 100;
     await ui.system(['[MEMORY SYNCHRONIZATION: 100%]', '[UNAUTHORIZED MEMORY DETECTED.]'], { glitch: true, time: 3 });
-    G.scene.remove(eye); G.scene.remove(pupil); G.flags.whiteSky = false;
+    G.scene.remove(eye); G.scene.remove(pupil); for (const m of eye.userData.extra) G.scene.remove(m); clearInterval(eye.userData.spin); G.flags.whiteSky = false;
     await ui.fade(1, 1.5);
     const card = document.createElement('div'); card.style.cssText = 'position:fixed;inset:0;z-index:51;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center';
     card.innerHTML = '<div style="font-family:var(--title-font);font-size:min(10vw,90px);font-weight:900;letter-spacing:8px;text-shadow:0 0 30px rgba(95,216,255,.7)">RE<span style="color:#ff3355">:</span>WORLD</div><div style="font-family:var(--title-font);letter-spacing:10px;font-size:22px;margin-top:8px">END OF PART I — THE FORGOTTEN PLAYER</div><div style="margin-top:40px;opacity:.8;letter-spacing:3px">The world remains open. 312 days remain.<br>Find the remaining memories. Grow stronger. Remember.</div><div style="margin-top:40px;font-size:14px;opacity:.6;animation:blink .8s infinite alternate">PRESS ANY KEY</div>';

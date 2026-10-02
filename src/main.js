@@ -14,6 +14,7 @@ import { Boss } from './entities/boss.js';
 import { UI } from './ui/ui.js';
 import { Story } from './story/story.js';
 import { rng } from './core/util.js';
+import { Grass } from './world/grass.js';
 
 const SAVE_KEY = 'reworld_save_v1';
 const R = rng(4321);
@@ -46,6 +47,7 @@ class Game {
     this.world = new World(this.scene);
     this.world.build((m) => progress(m));
     await frame();
+    this.grass = new Grass(this.scene);
     this.cam = new CameraRig(this.camera, this.world);
     this.combat = new Combat(this);
     this.ui = new UI(this);
@@ -275,6 +277,7 @@ class Game {
     this.world.updateAtmosphere(this.hours, this.player.pos, regKey, rdt);
     if (this.flags.whiteSky) { this.world.skyU.top.value.set(0xffffff); this.world.skyU.horizon.value.set(0xf0f8ff); this.scene.fog.color.set(0xf0f8ff); }
     if (this.world.interior === 'throne') { this.scene.fog.color.set(0x140a20); this.scene.fog.near = 20; this.scene.fog.far = 120; }
+    this.grass.update(Time.game, this.player.pos, this.world.interior, this.player.pos.y > LOC.islands.y - 30);
     // ambient particles: lava embers, snow, sky motes
     this.ambientParticles(rdt);
     FX.update((x, z) => this.world.groundAt(x, z));
@@ -300,7 +303,7 @@ const frame = () => new Promise((r) => requestAnimationFrame(() => r()));
 
 // ------------------------------------------------------------------ boot
 const G = new Game();
-window.GAME = G;
+window.GAME = G; G.input = Input;
 const loading = document.getElementById('loading');
 const btns = ['btnNew', 'btnSkip', 'btnContinue'].map((id) => document.getElementById(id));
 btns.forEach((b) => (b.disabled = true));
