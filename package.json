@@ -1,0 +1,27 @@
+{
+  "name": "re-world-the-forgotten-player",
+  "version": "1.0.0",
+  "description": "RE:WORLD — The Forgotten Player. A 3D anime open-world reincarnation action RPG for the browser.",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/55dom/Reincarnation-anime-game.git"
+  },
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/55dom/Reincarnation-anime-game/issues"
+  },
+  "homepage": "https://github.com/55dom/Reincarnation-anime-game#readme",
+  "dependencies": {
+    "three": "^0.169.0"
+  },
+  "devDependencies": {
+    "vite": "^5.4.21"
+  },
+  "private": true,
+  "type": "module"
+}

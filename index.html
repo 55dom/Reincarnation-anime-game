@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>RE:WORLD — The Forgotten Player</title>
+  <link rel="stylesheet" href="/src/ui/style.css" />
+</head>
+<body>
+  <div id="game"></div>
+  <canvas id="fx2d"></canvas>
+  <div id="flash"></div>
+  <div id="letterbox"><div class="bar top"></div><div class="bar bottom"></div></div>
+  <div id="fade"></div>
+
+  <div id="hud" class="hidden">
+    <div id="stats">
+      <div class="row nameRow"><span id="hudName">UNKNOWN</span> <span class="lv">Lv <b id="hudLevel">1</b></span> <span id="hudClass" class="glitch" data-text="ERROR">ERROR</span></div>
+      <div class="bar hp"><div class="fill" id="hpFill"></div><div class="lag" id="hpLag"></div><span id="hpText">100/100</span></div>
+      <div class="bar mp"><div class="fill" id="mpFill"></div><span id="mpText">50/50</span></div>
+      <div class="bar ex"><div class="fill" id="exFill"></div></div>
+      <div class="bar lim"><div class="fill" id="limFill"></div><span class="lbl">LIMIT</span></div>
+    </div>
+    <div id="weaponBox"><div id="weaponName">Broken Sword</div><div id="weaponHint">[1-6] switch</div></div>
+    <canvas id="minimap" width="180" height="180"></canvas>
+    <div id="regionName"></div>
+    <div id="clock"></div>
+    <div id="objective"></div>
+    <div id="combo"><span id="comboNum">0</span><small>HITS</small><div id="comboRank"></div></div>
+    <div id="bossBar" class="hidden"><div class="bname" id="bossName">BOSS</div><div class="bar"><div class="fill" id="bossFill"></div><div class="lag" id="bossLag"></div></div><div class="posture"><div class="fill" id="bossPosture"></div></div></div>
+    <div id="prompt" class="hidden"></div>
+    <div id="lockReticle" class="hidden"></div>
+    <div id="skillBar"></div>
+  </div>
+
+  <div id="dmgLayer"></div>
+  <div id="sysLayer"></div>
+  <div id="toastLayer"></div>
+
+  <div id="dialogue" class="hidden">
+    <div class="dname" id="dName"></div>
+    <div class="dtext" id="dText"></div>
+    <div class="dchoices" id="dChoices"></div>
+    <div class="dnext">▼</div>
+  </div>
+
+  <div id="menu" class="hidden"></div>
+
+  <div id="titleCard" class="hidden">
+    <div class="t1">RE<span>:</span>WORLD</div>
+    <div class="t2">THE FORGOTTEN PLAYER</div>
+    <div class="t3" id="titlePrompt"></div>
+  </div>
+
+  <div id="boot">
+    <div class="bootInner">
+      <div class="logo">RE<span>:</span>WORLD</div>
+      <div class="sub">THE FORGOTTEN PLAYER</div>
+      <div id="bootButtons">
+        <button id="btnNew">NEW GAME</button>
+        <button id="btnContinue" class="hidden">CONTINUE</button>
+        <button id="btnSkip">NEW GAME (SKIP PROLOGUE)</button>
+      </div>
+      <div class="controls">
+        <b>WASD</b> move · <b>Mouse</b> camera · <b>LMB</b> light · <b>RMB</b> heavy · <b>Shift</b> dodge/dash · <b>Space</b> jump<br/>
+        <b>Q</b> (hold) block · tap just before a hit to <b>parry</b> · <b>E</b> weapon skill · <b>R</b> ultimate · <b>Tab / MMB</b> lock-on<br/>
+        <b>F</b> interact / finisher · <b>1-6 / wheel</b> switch weapon · <b>C</b> status · <b>J</b> quests · <b>K</b> class · <b>M</b> map · <b>Esc</b> pause<br/>
+        Gamepad supported. Headphones recommended.
+      </div>
+      <div id="loading">Generating world…</div>
+    </div>
+  </div>
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>
