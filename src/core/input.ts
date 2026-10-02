@@ -27,6 +27,7 @@ export class Input {
   stickEl!: HTMLDivElement;
   stickKnob!: HTMLDivElement;
   uiBlocking = false; // a menu is open: suppress gameplay input
+  noPointerLock = false; // pointer lock refused (e.g. sandboxed iframe): mouse-look without capture
   editing = false;    // controls-layout editor is open: on-screen buttons are being dragged, not pressed
   mouseSens = 0.0024;
   touchSens = 0.006;
@@ -57,7 +58,12 @@ export class Input {
         if (fires !== false) return;
         this.touchMode = false; document.body.classList.remove('touch');
       }
-      if (document.pointerLockElement !== canvas && !this.uiBlocking) { canvas.requestPointerLock?.(); }
+      if (document.pointerLockElement !== canvas && !this.uiBlocking && !this.noPointerLock) {
+        try {
+          const r = canvas.requestPointerLock?.() as unknown as Promise<void> | undefined;
+          r?.catch?.(() => { this.noPointerLock = true; });
+        } catch { this.noPointerLock = true; }
+      }
       if (e.button === 0) this.press('light');
       if (e.button === 2) this.press('heavy');
       if (e.button === 1) { this.press('lock'); e.preventDefault(); }
@@ -68,8 +74,12 @@ export class Input {
       if (e.button === 1) this.release('lock');
     });
     canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+    // Embedded/sandboxed pages may refuse pointer lock: fall back to free mouse-look over the canvas.
+    document.addEventListener('pointerlockerror', () => { this.noPointerLock = true; });
+    if (!('requestPointerLock' in canvas)) this.noPointerLock = true;
     window.addEventListener('mousemove', (e) => {
-      if (document.pointerLockElement === canvas) {
+      const free = this.noPointerLock && !this.uiBlocking && !this.touchMode && e.target === canvas;
+      if (document.pointerLockElement === canvas || free) {
         this.look.x += e.movementX * this.mouseSens * this.sens;
         this.look.y += e.movementY * this.mouseSens * this.sens * (this.invertY ? -1 : 1);
       }

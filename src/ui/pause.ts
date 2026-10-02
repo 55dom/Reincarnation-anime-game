@@ -34,7 +34,14 @@ export function openPause(g: Game, tab: Tab = 'game') {
       body.querySelector('[data-a=settings]')!.addEventListener('click', () => { tab = 'settings'; render(root); });
       body.querySelector('[data-a=layout]')!.addEventListener('click', () => { g.hud.closePanel(); g.layout.enter(); });
       body.querySelector('[data-a=help]')!.addEventListener('click', () => { g.paused = false; Panels.help(g); });
-      body.querySelector('[data-a=title]')!.addEventListener('click', () => { if (confirm('Return to the title screen? Progress in this prototype is not saved.')) location.reload(); });
+      // Two-step confirm in the page itself (embedded viewers block confirm() dialogs)
+      const titleBtn = body.querySelector('[data-a=title]') as HTMLButtonElement;
+      titleBtn.addEventListener('click', () => {
+        if (titleBtn.dataset.armed) { location.reload(); return; }
+        titleBtn.dataset.armed = '1';
+        titleBtn.textContent = 'Return to title — tap again (progress is not saved)';
+        setTimeout(() => { delete titleBtn.dataset.armed; titleBtn.textContent = 'Return to title'; }, 3500);
+      });
       return;
     }
     body.innerHTML = `
