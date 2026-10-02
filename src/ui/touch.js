@@ -69,7 +69,7 @@ export class TouchControls {
     const G = this.G;
     const playing = G.state === 'play' && !G.cutscene && !G.ui.menuOpen && !G.ui.dialogueOpen && G.player.alive;
     this.show(playing);
-    this.rotate.classList.toggle('on', G.state === 'play' && innerHeight > innerWidth);
+    this.rotate.classList.toggle('on', innerHeight > innerWidth);
     if (!playing) { this.stickId = null; this.lookId = null; Input.touchMove = null; this.stick.classList.remove('on'); }
     // context highlights
     const P = G.player;

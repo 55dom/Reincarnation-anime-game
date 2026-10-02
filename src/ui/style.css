@@ -204,6 +204,7 @@ body.touch .touchControls b { color: var(--sys); }
 #rotateHint { position: fixed; inset: 0; z-index: 70; background: #000; color: #dff6ff; display: none; flex-direction: column; align-items: center; justify-content: center; font-size: 18px; letter-spacing: 2px; text-align: center; }
 #rotateHint div { font-size: 64px; animation: spinHint 1.6s infinite ease-in-out; }
 #rotateHint.on { display: flex; }
+@media (orientation: portrait) { body.touch #rotateHint { display: flex; } }
 @keyframes spinHint { 50% { transform: rotate(90deg); } }
 body.touch #skillBar, body.touch #weaponHint { display: none; }
 body.touch #prompt { top: auto; bottom: 40%; }
