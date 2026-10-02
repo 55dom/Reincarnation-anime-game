@@ -1,7 +1,7 @@
 # ASHVEIL: CRIMSON MARCH
 
 A mobile-first, browser-based third-person action-RPG prototype. Built with Vite, TypeScript and Three.js (WebGL).
-All geometry, textures, animation and UI are generated in code. There are no external models, images, music or fonts.
+All geometry, textures, animation, sound and UI are generated in code. There are no external models, images, audio files or fonts.
 
 ```bash
 npm install
@@ -37,7 +37,38 @@ After that, the Garran Vell deserter contract (ruined watchtower, west) and **Th
 | Interact (some are held) | E | Use |
 | Track (Hunter) / eat / pitch camp (Wayfarer) | T / 1 / B | via the Pack |
 | Pack / map / ledger / help | I / M / J / H | Top-right buttons |
+| Pause menu & settings | Esc (or ☰) | ☰ |
 | Debug: toggle rain / skip 3h | K / N | — |
+
+## Pause menu and settings
+
+Esc, the ☰ button, or losing mouse capture pauses the world. **Settings** apply live and are saved on the device (localStorage):
+
+- **Audio:** master, effects and ambience volume. All sound is generated live with WebAudio: wind and rain, campfire crackle, footsteps (dry, wet and through grass), swings, hits, rolls and finisher booms.
+- **Display:** brightness (exposure) and darkness (how deep shadows and nights get).
+- **Camera:** sensitivity for mouse and touch, and invert vertical look.
+- **Graphics:** Ultra, High, Medium or Low. Each preset sets resolution, shadow-map size (off on Low), grass density, draw distance and detail, particles, and fog distance. *Auto-adjust* drops one preset at a time if the frame rate stays low. Picking a preset by hand turns auto-adjust off.
+- **HUD and on-screen controls:** opacity, overall size, a floating or fixed joystick, and showing touch controls even with a mouse.
+
+### Custom controls layout
+
+*Customize on-screen controls* opens an editor for the touch controls only (vitals, compass and menus stay where they are):
+
+- drag any button or the joystick
+- select one and resize it
+- adjust opacity
+- reset to the default layout
+
+Positions are stored as a percentage of the screen, so a layout survives rotation and different phone sizes.
+
+## Grass fields
+
+Wide fields of tall, wind-swept grass grow around the scrub and the open marches, with the ground underneath tinted olive-gold. As you walk through:
+
+- the grass parts around you and turns see-through near you and in front of the camera (dithered fading, so there's no sorting cost)
+- you leave a trampled trail that springs back up over about 15 seconds
+
+Distant patches switch to a cheaper low-detail version of each tuft, and draw distance is set by the graphics preset.
 
 ## How fights read
 
@@ -80,8 +111,8 @@ Every character uses one `ProcAnimator`. Humanoids, wolves, hares and the boss s
 - Each character's ~60 shaped parts are merged per joint into 2 vertex-coloured materials.
 - Vegetation is instanced and chunked for culling. Static city geometry is merged by material.
 - Distant actors are hidden and stop updating.
-- Phones get a smaller shadow map, a lower pixel ratio, less grass and fewer particles.
-- At runtime the game watches FPS and steps down in order: pixel ratio, then shadows, then particles.
+- Graphics presets set resolution, shadows, grass density, draw distance and detail, and particles. Phones default to Medium.
+- With auto-adjust on, the game watches FPS and steps down one preset at a time.
 
 ## Milestone status
 
@@ -95,7 +126,7 @@ Every character uses one `ProcAnimator`. Humanoids, wolves, hares and the boss s
 
 ## Known limitations
 
-- No audio.
-- Performance has only been checked in a headless software renderer: draw calls are about 330 at spawn with shadows on. It has not been profiled on real phones yet.
+- The sound is simple and generated live: there's no music, and no voiced lines.
+- Performance has only been checked in a headless software renderer, not profiled on real phones yet. Triangles visible in a dense field: Ultra about 1.5M, High about 830k, Medium about 364k (phone default), Low about 218k.
 - Animation is procedural, so attacks read clearly but don't have the weight of authored animation.
 - The respec relic and the other continents are data only.

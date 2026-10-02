@@ -2,6 +2,7 @@
 // subtitles/letterbox, touch controls, and a generic modal panel host.
 import * as THREE from 'three';
 import type { Input, Action } from '../core/input';
+import type { ControlsLayout } from './controlsLayout';
 
 export interface PlateInfo { id: number; name: string; pos: THREE.Vector3; h: number; hp: number; max: number; kind: 'red' | 'gold' | 'blue' | 'neutral'; tag?: string; bleed?: number; show: boolean }
 export interface CompassMark { yawWorld: number; kind: 'obj' | 'camp' | 'track' }
@@ -29,10 +30,10 @@ export class HUD {
   private vig: HTMLElement;
   panelOpen = false;
   onPanelClose: (() => void) | null = null;
-  menuHandlers: Partial<Record<'inv' | 'map' | 'ledger' | 'help', () => void>> = {};
+  menuHandlers: Partial<Record<'inv' | 'map' | 'ledger' | 'help' | 'pause', () => void>> = {};
   private stick: HTMLDivElement;
 
-  constructor(private input: Input) {
+  constructor(private input: Input, layout: ControlsLayout) {
     this.root = document.getElementById('ui')!;
     const v = el('div', 'vitals');
     this.vlabel = el('div', 'vlabel', 'Unsigned drifter');
@@ -54,7 +55,7 @@ export class HUD {
     this.fadeEl = el('div', 'fade');
     this.fpsEl = el('div', 'fps');
     const menu = el('div', 'menu-btns');
-    for (const [k, label] of [['inv', 'Pack'], ['map', 'Map'], ['ledger', 'Ledger'], ['help', '?']] as const) {
+    for (const [k, label] of [['inv', 'Pack'], ['map', 'Map'], ['ledger', 'Ledger'], ['pause', '☰']] as const) {
       const b = el('button', '', label) as HTMLButtonElement;
       b.addEventListener('click', (e) => { e.stopPropagation(); this.menuHandlers[k]?.(); });
       b.addEventListener('touchend', (e) => { e.preventDefault(); e.stopPropagation(); this.menuHandlers[k]?.(); });
@@ -65,13 +66,15 @@ export class HUD {
     const knob = el('div', 'knob') as HTMLDivElement;
     this.stick.append(knob);
     input.stickEl = this.stick; input.stickKnob = knob;
-    const tb = el('div', 'tbtns touch-only');
+    const tb = el('div', 'tlayer touch-only');
     const buttons: [string, string, Action][] = [['atk', 'Strike', 'light'], ['hvy', 'Heavy', 'heavy'], ['dge', 'Roll', 'dodge'], ['spc', 'Art', 'special'], ['jmp', 'Jump', 'jump'], ['lck', 'Lock', 'lock'], ['itr', 'Use', 'interact'], ['crh', 'Crouch', 'crouch']];
     for (const [cls, label, a] of buttons) {
       const b = el('div', 'tb ' + cls, label);
       input.bindButton(b, a);
       tb.append(b);
+      layout.register(cls, b);
     }
+    layout.register('stick', this.stick);
     this.root.append(this.vig, v, this.compass, this.objective, this.toastEl, this.promptEl, this.reticle, this.bossEl, this.stick, tb, menu, this.letter, this.subEl, this.panelHost, this.fadeEl, this.fpsEl);
     const ticks = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
     ticks.forEach((t) => { const s = el('div', 'tick', t); s.dataset.tick = t; this.compass.append(s); });

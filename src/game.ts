@@ -4,7 +4,11 @@ import { Input } from './core/input';
 import { isTouchDevice, clamp, damp } from './core/util';
 import { Collision } from './world/collision';
 import { buildTerrain, timeUniform } from './world/terrain';
-import { buildGrass, buildTrees, buildRocks } from './world/vegetation';
+import { GrassField, buildTrees, buildRocks } from './world/vegetation';
+import { loadSettings, saveSettings, presetSpec, type Settings, type GraphicsPreset } from './core/settings';
+import { GameAudio } from './core/audio';
+import { ControlsLayout } from './ui/controlsLayout';
+import { openPause } from './ui/pause';
 import { buildWorld, type WorldProps, type Campfire } from './world/veyr';
 import { SITES, heightAt, FORT_DEPTH } from './world/layout';
 import { Sky } from './world/sky';
@@ -50,6 +54,13 @@ export class Game {
   combat = new CombatWorld();
   fx!: FX;
   finisher!: Finisher;
+  settings: Settings;
+  audio = new GameAudio();
+  layout!: ControlsLayout;
+  grass!: GrassField;
+  paused = false;
+  private fogMul = 1;
+  private baseShadow = 2048;
   hud!: HUD;
   inv = new Inventory();
   actors: Actor[] = [];
@@ -86,7 +97,8 @@ export class Game {
   constructor(canvas: HTMLCanvasElement) {
     this.mobile = isTouchDevice() && Math.min(screen.width, screen.height) < 900;
     this.quality = this.mobile ? 1 : 2;
-    this.pixelRatio = Math.min(window.devicePixelRatio, this.mobile ? 1.5 : 2);
+    this.settings = loadSettings(this.mobile);
+    this.pixelRatio = presetSpec(this.settings.graphics, window.devicePixelRatio).pixelRatio;
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: !this.mobile, powerPreference: 'high-performance' });
     this.renderer.setPixelRatio(this.pixelRatio);
     this.renderer.setSize(window.innerWidth, window.innerHeight);
@@ -107,19 +119,21 @@ export class Game {
   }
 
   async boot() {
-    this.hud = new HUD(this.input);
+    this.layout = new ControlsLayout(this.input, this.settings);
+    this.layout.onSave = () => saveSettings(this.settings);
+    this.input.stickCenter = () => this.layout.stickCenter();
+    this.hud = new HUD(this.input, this.layout);
     const s = this.scene;
     s.fog = new THREE.Fog(0xd8a888, 70, 300);
-    this.sky = new Sky(s, this.quality === 2 ? 2048 : 1024);
+    this.sky = new Sky(s, 2048);
     s.add(buildTerrain(this.quality === 2 ? 220 : 150));
     this.props = buildWorld(s, this.col);
     buildTrees(s, this.col);
     buildRocks(s, this.col);
-    buildGrass(s, this.quality === 2 ? 1.0 : 0.45);
+    this.grass = new GrassField(s);
     this.weather = new Weather(s, this.quality);
     this.weather.onChange = (k) => this.hud.toast(k === 'rain' ? '<i>The wind turns. Rain on the dunes.</i>' : '<i>The rain thins. The sand begins to steam.</i>');
     this.fx = new FX(s);
-    this.fx.particleScale = this.quality === 2 ? 1 : 0.55;
     this.cam = new ThirdPersonCamera(this.camera, this.col);
     this.finisher = new Finisher(this.cam, this.hud, this.col);
     this.player = new Player(s, this.col);
@@ -134,8 +148,21 @@ export class Game {
     this.setupInteractables();
     this.hud.menuHandlers = {
       inv: () => Panels.inventory(this), map: () => Panels.map(this), ledger: () => Panels.ledgerView(this), help: () => Panels.help(this),
+      pause: () => { if (this.hud.panelOpen) this.hud.closePanel(); else openPause(this); },
     };
+    this.applyGraphics();
+    this.applySettings(false);
+    // Losing pointer lock mid-game (Esc on desktop) opens the pause menu, like any action game.
+    document.addEventListener('pointerlockchange', () => {
+      if (!document.pointerLockElement && this.started && !this.hud.panelOpen && !this.cine && !this.layout.editing && !this.input.touchMode) openPause(this);
+    });
+    // Menu clicks, and unlocking audio on the first gesture
+    document.getElementById('ui')!.addEventListener('click', (e) => { if ((e.target as HTMLElement).closest('button, .ccard, [data-a]')) this.audio.click(); });
+    window.addEventListener('pointerdown', () => this.audio.init(), { once: false });
+    this.finisher.onPlay = (kind) => this.audio.finisher(kind === 'boss');
+    this.player.onRoll = () => this.audio.roll();
     this.player.onFootstep = (p, yaw) => {
+      this.audio.footstep(this.weather.wet, this.player.sprinting, this.grass.densityAt(p.x, p.z));
       this.weather.footprint(p, yaw + Math.PI);
       if (this.weather.wet < 0.3 && this.player.sprinting) this.fx.dust(p, 2);
     };
@@ -148,6 +175,7 @@ export class Game {
   }
 
   private start() {
+    this.audio.init();
     this.started = true;
     this.hud.letterbox(true);
     this.hud.subtitle('', '<i>Veyr. The ash-desert city. Nobody here feeds an unsigned drifter.</i>');
@@ -205,6 +233,7 @@ export class Game {
         this.fx.spark(ev.b!.pos.clone().setY(ev.b!.pos.y + 1.2), new THREE.Vector3(0, 1, 0), 0x5aa0e8, 5);
       }
       if (ev.type === 'hit' && ev.b === this.player) {
+        this.audio.hurt();
         this.hud.hurt();
         this.cam.addPunch(ev.info!.dir.clone().multiplyScalar(0.6), 1);
         this.fx.blood(this.player.pos.clone().setY(this.player.pos.y + 1.2), ev.info!.dir, 5);
@@ -213,6 +242,7 @@ export class Game {
       if (ev.type === 'evade' && ev.b === this.player) this.fx.dust(this.player.pos.clone(), 3, 0xd8c8a0);
       if (ev.type === 'hit' && ev.a === this.player && ev.b) {
         const t = ev.b;
+        this.audio.hit(!!ev.res?.staggered || ev.info?.kind === 'execute');
         const p = t.pos.clone().setY(t.pos.y + t.height * 0.6);
         this.fx.spark(p, ev.info!.dir, 0xffc070, 7);
         if (t.faction !== 'party') this.fx.blood(p, ev.info!.dir, t.rig.kind === 'quad' ? 6 : 4);
@@ -259,6 +289,7 @@ export class Game {
   }
 
   private playerSwing(ctx: AttackCtx) {
+    if (!ctx.hitSet.has(-2)) { ctx.hitSet.add(-2); this.audio.swing(ctx.kind === 'heavy' || ctx.kind === 'charged' || ctx.kind === 'critical'); }
     if (ctx.kind === 'critical') { this.criticalHit(ctx); return; }
     const bleed = this.player.cls?.id === 'shadebound' ? 14 : 0;
     this.combat.sweep(this.player, ctx.move, ctx.hitSet, bleed ? { bleed } : {});
@@ -279,6 +310,7 @@ export class Game {
 
   private playerSpecial(ctx: AttackCtx) {
     const cls = this.player.cls!;
+    if (!ctx.hitSet.has(-2)) { ctx.hitSet.add(-2); this.audio.swing(true); }
     const once = !ctx.hitSet.has(-1);
     switch (cls.id) {
       case 'hunter': {
@@ -673,7 +705,13 @@ export class Game {
     this.time += dt;
     timeUniform.value = this.time;
     this.input.update(realDt);
-    this.update(dt, realDt);
+    if (this.paused || this.layout.editing) {
+      // World frozen (pause menu or controls-layout editor); only menus respond. Ambience ducks.
+      this.time -= dt;
+      if (this.input.pressed('menuBack')) { if (this.layout.editing) this.layout.exit(); else this.hud.closePanel(); }
+      this.audio.update(realDt, this.weather.windStrength - 0.6, this.weather.rainAmt, this.isInsideGuild(), 0, true);
+      this.hud.tick(realDt);
+    } else this.update(dt, realDt);
     this.renderer.render(this.scene, this.camera);
     this.input.endFrame();
     this.adaptQuality(this.clock.getDelta());
@@ -698,7 +736,9 @@ export class Game {
 
     // Global keys
     if (this.started && !this.cine) {
-      if (inp.pressed('menuBack') && this.hud.panelOpen) this.hud.closePanel();
+      if (inp.pressed('menuBack') && this.layout.editing) this.layout.exit();
+      else if (inp.pressed('menuBack') && this.hud.panelOpen) this.hud.closePanel();
+      else if (inp.pressed('menuBack') && !this.hud.panelOpen) openPause(this);
       else if (!this.hud.panelOpen) {
         if (inp.pressed('inv')) Panels.inventory(this);
         if (inp.pressed('map')) Panels.map(this);
@@ -792,9 +832,16 @@ export class Game {
     this.sky.update(dt, this.camera.position, P.pos, this.time);
     const fog = this.scene.fog as THREE.Fog;
     fog.color.copy(this.sky.fogColor);
-    fog.near = indoor ? 120 : 60 - this.weather.rainAmt * 35;
-    fog.far = indoor ? 400 : 300 - this.weather.rainAmt * 150;
-    this.renderer.toneMappingExposure = indoor ? 1.25 : this.sky.isNight ? 1.25 : 1.05;
+    fog.near = (indoor ? 120 : 60 - this.weather.rainAmt * 35) * this.fogMul;
+    fog.far = (indoor ? 400 : 300 - this.weather.rainAmt * 150) * this.fogMul;
+    // Player display settings: brightness scales exposure; darkness deepens ambient/shadow fill
+    const darkK = 1.35 - this.settings.darkness * 0.8;
+    this.sky.hemi.intensity *= darkK;
+    this.renderer.toneMappingExposure = (indoor ? 1.25 : this.sky.isNight ? 1.25 - this.settings.darkness * 0.3 : 1.05) * this.settings.brightness;
+    this.grass.update(dt, P.pos, this.camera.position, Math.hypot(P.vel.x, P.vel.z) > 0.5 && P.grounded);
+    let fireNear = 0;
+    for (const cf of this.props.campfires) fireNear = Math.max(fireNear, 1 - this.distToP(cf.pos) / 12);
+    this.audio.update(realDt, this.weather.windStrength - 0.6, this.weather.rainAmt, indoor, Math.max(0, fireNear), false);
     this.updateFires(dt);
 
     // Camera
@@ -953,15 +1000,56 @@ export class Game {
     f.t += dt; f.n++;
     if (f.t >= 2) {
       const fps = f.n / f.t;
-      this.hud.fps(`${fps.toFixed(0)} fps · ${this.weather.kind} · ${Math.floor(this.sky.hour)}:${String(Math.floor((this.sky.hour % 1) * 60)).padStart(2, '0')}`);
-      if (fps < 45) f.low++; else f.low = Math.max(0, f.low - 1);
-      if (f.low >= 2) {
+      this.hud.fps(`${fps.toFixed(0)} fps · ${this.settings.graphics} · ${this.weather.kind} · ${Math.floor(this.sky.hour)}:${String(Math.floor((this.sky.hour % 1) * 60)).padStart(2, '0')}`);
+      if (fps < 45 && !this.paused) f.low++; else f.low = Math.max(0, f.low - 1);
+      if (f.low >= 3 && this.settings.autoQuality && this.started) {
         f.low = 0;
-        if (this.pixelRatio > 0.8) { this.pixelRatio = Math.max(0.75, this.pixelRatio - 0.25); this.renderer.setPixelRatio(this.pixelRatio); }
-        else if (this.renderer.shadowMap.enabled) { this.renderer.shadowMap.enabled = false; this.sky.sun.castShadow = false; this.scene.traverse((o) => { const m = (o as THREE.Mesh).material as THREE.Material | undefined; if (m) m.needsUpdate = true; }); }
-        else this.fx.particleScale = 0.3;
+        const order: GraphicsPreset[] = ['ultra', 'high', 'medium', 'low'];
+        const i = order.indexOf(this.settings.graphics);
+        if (i < order.length - 1) {
+          this.settings.graphics = order[i + 1];
+          this.applyGraphics();
+          saveSettings(this.settings);
+          this.hud.toast(`<i>Graphics lowered to ${this.settings.graphics} to keep the frame rate up.</i>`, '', 2.5);
+        }
       }
       f.t = 0; f.n = 0;
     }
+  }
+
+  // ---------------- Settings ----------------
+  /** Apply the graphics preset: resolution, shadows, grass field, particles, fog distance. */
+  applyGraphics() {
+    const spec = presetSpec(this.settings.graphics, window.devicePixelRatio);
+    this.pixelRatio = spec.pixelRatio;
+    this.renderer.setPixelRatio(spec.pixelRatio);
+    const wantShadows = spec.shadow > 0;
+    const sun = this.sky.sun;
+    if (wantShadows && spec.shadow !== this.baseShadow) {
+      sun.shadow.mapSize.set(spec.shadow, spec.shadow);
+      sun.shadow.map?.dispose();
+      (sun.shadow as { map: THREE.WebGLRenderTarget | null }).map = null;
+      this.baseShadow = spec.shadow;
+    }
+    if (wantShadows !== this.renderer.shadowMap.enabled) {
+      this.renderer.shadowMap.enabled = wantShadows;
+      sun.castShadow = wantShadows;
+      this.scene.traverse((o) => { const m = (o as THREE.Mesh).material as THREE.Material | undefined; if (m) m.needsUpdate = true; });
+    }
+    this.grass.build(spec.grass, spec.grassDist, spec.grassLod);
+    this.fx.particleScale = spec.particles;
+    this.fogMul = spec.fogMul;
+  }
+
+  /** Apply non-graphics settings live; graphics=true also re-applies the preset. Persists. */
+  applySettings(graphics: boolean) {
+    const s = this.settings;
+    if (graphics) this.applyGraphics();
+    this.audio.setVolumes(s.master, s.sfx, s.ambience);
+    this.input.sens = s.sensitivity;
+    this.input.invertY = s.invertY;
+    document.body.classList.toggle('touch', this.input.touchMode || s.showTouchControls);
+    this.layout.apply();
+    saveSettings(s);
   }
 }

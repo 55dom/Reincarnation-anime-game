@@ -1,6 +1,6 @@
 // Terrain mesh with sand/road blending, rain wetness and mud puddles injected into the standard PBR shader.
 import * as THREE from 'three';
-import { heightAt, pathMask, WORLD_SIZE, SITES, FORT_RADIUS } from './layout';
+import { heightAt, pathMask, fieldMask, WORLD_SIZE, SITES, FORT_RADIUS } from './layout';
 import { sandTex, pathTex } from '../render/textures';
 import { fbm } from '../core/util';
 
@@ -26,7 +26,10 @@ export function buildTerrain(segments: number): THREE.Mesh {
     pathA[i] = pm;
     // Painted colour variation: redder crests, paler hollows
     const n = fbm(x * 0.02, z * 0.02, 3, 77);
-    const r = 1.0 + (n - 0.5) * 0.25, g = 0.95 + (n - 0.5) * 0.15, b = 0.92 + (n - 0.5) * 0.1;
+    let r = 1.0 + (n - 0.5) * 0.25, g = 0.95 + (n - 0.5) * 0.15, b = 0.92 + (n - 0.5) * 0.1;
+    // Under grass fields the ground turns olive-gold (thatch and dry roots), so gaps never read as bare sand
+    const f = Math.min(1, fieldMask(x, z) * 1.6);
+    r *= 1 - f * 0.22; g *= 1 + f * 0.02; b *= 1 - f * 0.45;
     tint[i * 3] = r; tint[i * 3 + 1] = g; tint[i * 3 + 2] = b;
   }
   geo.setAttribute('aPath', new THREE.BufferAttribute(pathA, 1));

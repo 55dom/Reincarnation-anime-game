@@ -68,6 +68,7 @@ export class Player implements Combatant {
   onAttackActive: (ctx: AttackCtx) => void = () => {};
   onSpecial: (ctx: AttackCtx) => void = () => {};
   onLand: (impact: number) => void = () => {};
+  onRoll: () => void = () => {};
   private lastPhaseSign = 0;
   busyPose: 'kneel' | null = null;
   damageReduction = 0;
@@ -182,6 +183,7 @@ export class Player implements Combatant {
     const cost = this.cls?.rollCost ?? 18;
     if (this.stamina <= 0) return;
     this.useStamina(cost);
+    this.onRoll();
     this.state = 'roll';
     this.stateT = 0;
     this.attack = null;

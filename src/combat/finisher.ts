@@ -34,6 +34,7 @@ const SPEC: Record<FinisherKind, { dur: number; slowTo: number; holdUntil: numbe
 export class Finisher {
   active: Active | null = null;
   timeScale = 1;
+  onPlay: (kind: FinisherKind) => void = () => {};
 
   constructor(private cam: ThirdPersonCamera, private hud: HUD, private col: Collision) {}
 
@@ -62,6 +63,7 @@ export class Finisher {
     const shot = this.shot(a);
     this.cam.cut(shot.pos, shot.look);
     this.cam.addShake(kind === 'boss' ? 0.5 : 0.25);
+    this.onPlay(kind);
     if (a.letterbox) this.hud.letterbox(true);
     this.hud.slash(kind === 'critical' ? 'single' : 'cross', kind === 'boss');
   }

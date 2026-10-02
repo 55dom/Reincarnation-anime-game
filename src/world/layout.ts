@@ -122,3 +122,12 @@ export function normalAt(x: number, z: number): [number, number, number] {
   const l = Math.hypot(dx, 2 * e, dz);
   return [-dx / l, (2 * e) / l, -dz / l];
 }
+
+/** 0..1 grass-field coverage. Shared by the grass field and the terrain tint under it. */
+export function fieldMask(x: number, z: number): number {
+  if (Math.hypot(x, z) < 50 || pathMask(x, z) > 0.25) return 0;
+  if (Math.hypot(x - SITES.fort.x, z - SITES.fort.z) < FORT_RADIUS + 4) return 0;
+  const scrub = Math.max(0, 1 - Math.hypot(x - SITES.scrub.x, z - SITES.scrub.z) / 140);
+  const field = fbm(x * 0.012, z * 0.012, 3, 4) + fbm(x * 0.05, z * 0.05, 2, 8) * 0.25;
+  return Math.max(0, Math.min(1, (field - (0.62 - scrub * 0.45)) * 5));
+}

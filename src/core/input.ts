@@ -27,8 +27,13 @@ export class Input {
   stickEl!: HTMLDivElement;
   stickKnob!: HTMLDivElement;
   uiBlocking = false; // a menu is open: suppress gameplay input
+  editing = false;    // controls-layout editor is open: on-screen buttons are being dragged, not pressed
   mouseSens = 0.0024;
   touchSens = 0.006;
+  sens = 1;
+  invertY = false;
+  /** Fixed-stick centre in px (null = floating stick spawns where the thumb lands). */
+  stickCenter: () => { x: number; y: number } | null = () => null;
 
   constructor(private canvas: HTMLCanvasElement) {
     if ('ontouchstart' in window || navigator.maxTouchPoints > 0) { this.touchMode = true; document.body.classList.add('touch'); }
@@ -64,7 +69,10 @@ export class Input {
     });
     canvas.addEventListener('contextmenu', (e) => e.preventDefault());
     window.addEventListener('mousemove', (e) => {
-      if (document.pointerLockElement === canvas) this.look.x += e.movementX * this.mouseSens, this.look.y += e.movementY * this.mouseSens;
+      if (document.pointerLockElement === canvas) {
+        this.look.x += e.movementX * this.mouseSens * this.sens;
+        this.look.y += e.movementY * this.mouseSens * this.sens * (this.invertY ? -1 : 1);
+      }
     });
 
     // Touch: left 45% of the screen spawns a floating stick, the rest drags the camera.
@@ -72,12 +80,18 @@ export class Input {
     canvas.addEventListener('touchstart', (e) => {
       this.touchMode = true;
       document.body.classList.add('touch');
+      if (this.editing) { e.preventDefault(); return; }
+      const fixed = this.stickCenter();
       for (const t of Array.from(e.changedTouches)) {
-        if (t.clientX < window.innerWidth * 0.45 && this.stickId === null) {
+        const onFixed = fixed && Math.hypot(t.clientX - fixed.x, t.clientY - fixed.y) < 110;
+        if (this.stickId === null && (onFixed || (!fixed && t.clientX < window.innerWidth * 0.45))) {
           this.stickId = t.identifier;
-          this.stickOrigin.set(t.clientX, t.clientY);
-          this.stickEl.style.left = t.clientX + 'px';
-          this.stickEl.style.top = t.clientY + 'px';
+          if (fixed) this.stickOrigin.set(fixed.x, fixed.y);
+          else {
+            this.stickOrigin.set(t.clientX, t.clientY);
+            this.stickEl.style.left = t.clientX + 'px';
+            this.stickEl.style.top = t.clientY + 'px';
+          }
           this.stickEl.classList.add('on');
         } else if (this.lookId === null) {
           this.lookId = t.identifier;
@@ -96,8 +110,8 @@ export class Input {
           this.stickVec.set((dx * k) / R, (-dy * k) / R);
           this.stickKnob.style.transform = `translate(${dx * k}px, ${dy * k}px)`;
         } else if (t.identifier === this.lookId) {
-          this.look.x += (t.clientX - this.lookLast.x) * this.touchSens;
-          this.look.y += (t.clientY - this.lookLast.y) * this.touchSens;
+          this.look.x += (t.clientX - this.lookLast.x) * this.touchSens * this.sens;
+          this.look.y += (t.clientY - this.lookLast.y) * this.touchSens * this.sens * (this.invertY ? -1 : 1);
           this.lookLast.set(t.clientX, t.clientY);
         }
       }
@@ -119,7 +133,7 @@ export class Input {
 
   /** Bind an on-screen button element to an action (touch + mouse). */
   bindButton(el: HTMLElement, a: Action) {
-    const on = (e: Event) => { e.preventDefault(); e.stopPropagation(); this.press(a); el.classList.add('pressed'); };
+    const on = (e: Event) => { if (this.editing) return; e.preventDefault(); e.stopPropagation(); this.press(a); el.classList.add('pressed'); };
     const off = (e: Event) => { e.preventDefault(); this.release(a); el.classList.remove('pressed'); };
     el.addEventListener('touchstart', on, { passive: false });
     el.addEventListener('touchend', off, { passive: false });
