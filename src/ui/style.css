@@ -200,7 +200,21 @@ body.touch .touchControls b { color: var(--sys); }
 .b-lock { width: 44px; height: 44px; right: 16px; bottom: 170px; font-size: 18px; }
 .b-pot { width: 40px; height: 40px; right: 214px; bottom: 140px; font-size: 16px; }
 .b-wpn { width: 40px; height: 40px; right: 214px; bottom: 88px; font-size: 16px; }
-.b-menu { width: 44px; height: 44px; left: 50%; top: calc(8px + env(safe-area-inset-top)); margin-left: -22px; border-radius: 10px; font-size: 20px; }
+.b-menu, .b-fs { width: 46px; height: 46px; left: calc(12px + env(safe-area-inset-left)); top: 128px; border-radius: 10px; font-size: 20px; }
+.b-fs { left: calc(66px + env(safe-area-inset-left)); font-size: 22px; }
+body.fs .b-fs { opacity: .55; }
+/* Embedded in a host app (not fullscreen): the host may overlay its own bar across the top of the
+   page, so push everything readable or tappable below it. Fullscreen gets the whole screen back. */
+body.touch { --top-pad: env(safe-area-inset-top, 0px); }
+body.touch.embedded:not(.fs) { --top-pad: max(52px, env(safe-area-inset-top, 0px)); }
+body.touch #hud, body.touch #touch { top: var(--top-pad); }
+body.touch #menu { padding-top: var(--top-pad); }
+body.touch #menu .panel { max-height: calc(100% - 12px); }
+body.touch #boot { padding-top: var(--top-pad); overflow-y: auto; align-items: safe center; }
+body.touch #boot .bootInner { padding: 12px 16px; }
+body.touch #sysLayer { top: calc(var(--top-pad) + 8%); }
+body.touch #toastLayer { top: calc(var(--top-pad) + 182px); }
+#fsTip { margin-top: 6px; color: #ffd34d; }
 #rotateHint { position: fixed; inset: 0; z-index: 70; background: #000; color: #dff6ff; display: none; flex-direction: column; align-items: center; justify-content: center; font-size: 18px; letter-spacing: 2px; text-align: center; }
 #rotateHint div { font-size: 64px; animation: spinHint 1.6s infinite ease-in-out; }
 #rotateHint.on { display: flex; }
@@ -223,7 +237,8 @@ body.touch #prompt { top: auto; bottom: 40%; }
   #weaponName { font-size: 12px; }
   #combo { right: 290px; top: 30%; } #comboNum { font-size: 40px; } #combo small { font-size: 12px; } #comboRank { font-size: 18px; }
   #bossBar { bottom: auto; top: 46px; width: 46%; } #bossBar .bname { font-size: 13px; letter-spacing: 1px; }
-  #toastLayer { top: 112px; left: 12px; } .toast { font-size: 12px; padding: 3px 10px; }
+  #toastLayer { top: 112px; left: 12px; }
+  body.touch #toastLayer { top: calc(var(--top-pad) + 182px); } .toast { font-size: 12px; padding: 3px 10px; }
   #sysLayer { top: 8%; } .sys { min-width: 260px; max-width: 70vw; font-size: 14px; padding: 8px 16px; }
   .statusWin { font-size: 14px; line-height: 1.4; }
   #dialogue { bottom: 3vh; min-height: 90px; padding: 12px 18px 14px; width: min(760px, 88vw); }

@@ -29,6 +29,11 @@ export class TouchControls {
       b.addEventListener('pointerup', up); b.addEventListener('pointercancel', up); b.addEventListener('lostpointercapture', up);
     }
     const menu = document.createElement('div'); menu.className = 'tbtn b-menu'; menu.textContent = '☰'; root.appendChild(menu);
+    if (canFullscreen()) {
+      const fs = document.createElement('div'); fs.className = 'tbtn b-fs'; fs.textContent = '⛶'; root.appendChild(fs);
+      fs.addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); });
+      fs.addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); toggleFullscreen(); });
+    }
     menu.addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); if (G.ui.menuOpen) G.ui.closeMenu(); else if (!G.cutscene && !G.ui.dialogueOpen) G.ui.openMenu('system'); });
     // joystick + camera drag on the background layer (multi-touch via pointer ids)
     this.stickId = null; this.lookId = null; this.lookLast = null;
@@ -82,7 +87,33 @@ export class TouchControls {
   }
 }
 
+const fsElement = () => document.fullscreenElement || document.webkitFullscreenElement;
+export const canFullscreen = () => !!(document.fullscreenEnabled || document.webkitFullscreenEnabled);
+
+/** Keep the page told whether it is fullscreen / embedded so the layout can keep buttons out of
+ *  the strip a host app overlays at the top of an embedded page. */
+export function watchFullscreen() {
+  let embedded = false;
+  try { embedded = window.self !== window.top; } catch (e) { embedded = true; }
+  document.body.classList.toggle('embedded', embedded);
+  const sync = () => document.body.classList.toggle('fs', !!fsElement());
+  document.addEventListener('fullscreenchange', sync); document.addEventListener('webkitfullscreenchange', sync);
+  sync();
+}
+
 export async function goFullscreenLandscape() {
-  try { if (!document.fullscreenElement) await document.documentElement.requestFullscreen?.({ navigationUI: 'hide' }); } catch (e) { /* not allowed */ }
+  const el = document.documentElement;
+  try {
+    if (!fsElement()) {
+      if (el.requestFullscreen) await el.requestFullscreen({ navigationUI: 'hide' });
+      else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen();
+    }
+  } catch (e) { /* not allowed here */ }
   try { await screen.orientation?.lock?.('landscape'); } catch (e) { /* not supported (iOS) */ }
+  return !!fsElement();
+}
+
+export function toggleFullscreen() {
+  if (!fsElement()) return goFullscreenLandscape();
+  try { (document.exitFullscreen || document.webkitExitFullscreen)?.call(document); } catch (e) { /* ignore */ }
 }

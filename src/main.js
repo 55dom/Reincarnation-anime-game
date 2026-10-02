@@ -16,7 +16,7 @@ import { Story } from './story/story.js';
 import { rng } from './core/util.js';
 import { Animator } from './chars/anim.js';
 import { Grass } from './world/grass.js';
-import { TouchControls, isTouchDevice, goFullscreenLandscape } from './ui/touch.js';
+import { TouchControls, isTouchDevice, goFullscreenLandscape, canFullscreen, watchFullscreen } from './ui/touch.js';
 
 const SAVE_KEY = 'reworld_save_v1';
 const R = rng(4321);
@@ -353,6 +353,12 @@ G.init((m) => (loading.textContent = m)).then(() => {
   document.getElementById('btnNew').onclick = () => G.start('new');
   document.getElementById('btnSkip').onclick = () => G.start('skip');
   document.getElementById('btnContinue').onclick = () => G.start('continue');
+  if (G.mobile) {
+    watchFullscreen();
+    const fsBtn = document.getElementById('btnFull');
+    if (canFullscreen()) { fsBtn.classList.remove('hidden'); fsBtn.onclick = () => goFullscreenLandscape(); }
+    else document.getElementById('fsTip').classList.remove('hidden');
+  }
   const auto = params.get('autostart');
   if (auto) G.start(auto);
   window.__done = true;
